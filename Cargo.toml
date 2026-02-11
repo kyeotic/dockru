@@ -1,0 +1,44 @@
+[package]
+name = "dockru"
+version = "1.5.0"
+edition = "2021"
+rust-version = "1.75"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Socket.io server
+socketioxide = { version = "0.14", features = ["tracing"] }
+
+# HTTP server and middleware
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "compression-full", "trace"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive", "env"] }
+
+# Configuration management
+config = "0.14"
+
+# Graceful shutdown
+tokio-util = "0.7"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

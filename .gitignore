@@ -10,3 +10,7 @@ tmp
 # Git only
 frontend-dist
 
+# Rust
+/target
+Cargo.lock
+
