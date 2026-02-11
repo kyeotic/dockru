@@ -37,6 +37,51 @@ config = "0.14"
 # Graceful shutdown
 tokio-util = "0.7"
 
+# Cryptographic random number generation
+rand = "0.8"
+
+# YAML parsing with comment preservation
+yaml-rust2 = "0.8"
+
+# Regular expressions
+regex = "1.10"
+
+# Environment variable substitution
+envsubst = "0.2"
+
+# Database - SQLite with async support
+sqlx = { version = "0.8", features = [
+  "runtime-tokio",
+  "sqlite",
+  "macros",
+  "migrate",
+] }
+
+# URL parsing
+url = "2.5"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Phase 4: Authentication & Security
+# Password hashing with bcrypt
+bcrypt = "0.15"
+
+# SHA3 for shake256 password fingerprinting
+sha3 = "0.10"
+
+# Hex encoding for shake256 output
+hex = "0.4"
+
+# JWT token creation and verification
+jsonwebtoken = "9"
+
+# Rate limiting
+governor = "0.6"
+
+[dev-dependencies]
+tempfile = "3.10"
+
 [profile.release]
 opt-level = 3
 lto = true

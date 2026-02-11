@@ -1,6 +1,11 @@
 // Main entry point for Dockru Rust backend
+mod auth;
 mod config;
+mod db;
+mod rate_limiter;
 mod server;
+mod socket_auth;
+mod utils;
 
 use anyhow::Result;
 use tracing::info;
