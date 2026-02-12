@@ -49,6 +49,16 @@ regex = "1.10"
 # Environment variable substitution
 envsubst = "0.2"
 
+# Phase 5: Terminal/PTY System
+# Cross-platform PTY support
+portable-pty = "0.8"
+
+# Static initialization for terminal registry
+once_cell = "1.20"
+
+# Which command detection (for shell detection)
+which = "6.0"
+
 # Database - SQLite with async support
 sqlx = { version = "0.8", features = [
   "runtime-tokio",
@@ -81,6 +91,7 @@ governor = "0.6"
 
 [dev-dependencies]
 tempfile = "3.10"
+uuid = { version = "1.10", features = ["v4"] }
 
 [profile.release]
 opt-level = 3

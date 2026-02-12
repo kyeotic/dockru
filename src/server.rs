@@ -1,15 +1,31 @@
 use crate::config::Config;
+use crate::db::Database;
 use anyhow::{Context, Result};
 use axum::{response::Html, routing::get, Router};
 use socketioxide::{
     extract::{Data, SocketRef},
     SocketIo,
 };
+use sqlx::SqlitePool;
 use std::{fs, path::PathBuf, sync::Arc};
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_http::{compression::CompressionLayer, services::ServeDir, trace::TraceLayer};
 use tracing::{error, info, warn};
+
+/// Shared server context bundling dependencies
+#[derive(Clone)]
+pub struct ServerContext {
+    pub config: Arc<Config>,
+    pub io: SocketIo,
+    pub db: SqlitePool,
+}
+
+impl ServerContext {
+    pub fn new(config: Arc<Config>, io: SocketIo, db: SqlitePool) -> Self {
+        Self { config, io, db }
+    }
+}
 
 /// Main server structure
 pub struct DockruServer {
@@ -109,8 +125,21 @@ pub async fn serve(config: Config) -> Result<()> {
     info!("Data directory: {}", server.config.data_dir.display());
     info!("Stacks directory: {}", server.config.stacks_dir.display());
 
+    // Initialize database
+    let db = Database::new(&server.config.data_dir).await?;
+    
+    // Run migrations
+    db.migrate().await?;
+
     // Setup Socket.io
-    let (_io, socket_layer) = server.setup_socketio();
+    let (io, socket_layer) = server.setup_socketio();
+    
+    // Create server context
+    let _ctx = Arc::new(ServerContext::new(
+        server.config.clone(),
+        io,
+        db.pool().clone(),
+    ));
 
     // Build router
     let app = server.build_router(socket_layer);

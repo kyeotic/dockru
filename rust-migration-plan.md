@@ -201,7 +201,7 @@ High-level plan for migrating the Dockru backend from TypeScript/Node.js to Rust
 
 ## Phase 7: Socket.io Event Handlers
 
-**Goal:** Implement all Socket.io events matching TypeScript behavior exactly.
+**Goal:** Implement all Socket.io events matching TypeScript behavior.
 
 ### Tasks
 

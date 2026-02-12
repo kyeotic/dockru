@@ -104,14 +104,44 @@ This is the Rust backend implementation of Dockru (formerly Dockge), following t
 - ✅ Shared types (BaseRes, LooseObject)
 - ✅ YAML parsing (comment preservation pending)
 
-### Up Next: Phase 5 - Terminal/PTY System
+### Phase 6: Stack Management Core ✅ COMPLETE
 
-Next phase will implement:
-- PTY spawning and management
-- Terminal output buffering
-- Interactive terminal support
-- Main terminal (console) support
-- Terminal cleanup tasks
+**Implemented:**
+- ✅ ServerContext struct bundling config, io, and db
+- ✅ Stack struct with all fields (name, status, endpoint, compose files)
+- ✅ Docker CLI operations via Terminal/PTY:
+  - `deploy()` - docker compose up -d --remove-orphans
+  - `start()` - start stopped stack
+  - `stop()` - docker compose stop
+  - `restart()` - docker compose restart
+  - `down()` - docker compose down
+  - `update()` - docker compose pull + conditional restart
+  - `delete()` - down + remove directory
+- ✅ Stack file operations:
+  - `save()` - write compose.yaml and .env to disk
+  - `validate()` - check name format and YAML validity
+  - Lazy-loading of compose YAML/ENV from disk
+  - Auto-detection of compose file name variants
+- ✅ Static methods:
+  - `get_stack_list()` - scan directory + merge with docker compose ls
+  - `get_status_list()` - parse docker compose ls output
+  - `get_stack()` - load single stack by name
+  - `compose_file_exists()` - check for compose files
+  - `status_convert()` - parse docker status strings
+- ✅ Service status parsing from `docker compose ps --format json`
+- ✅ Terminal operations:
+  - `join_combined_terminal()` - docker compose logs -f
+  - `leave_combined_terminal()` - detach from logs
+- ✅ JSON serialization:
+  - `to_simple_json()` - lightweight list view
+  - `to_json()` - full details with compose content
+- ✅ Global.env and per-stack .env file support
+
+**Notes:**
+- Stack struct integrates with Terminal system from Phase 5
+- Uses yaml-rust2 for YAML parsing (already in dependencies)
+- External/unmanaged stack support basic (will improve in Phase 7)
+- All methods use async/await for file I/O
 
 ---
 
@@ -239,7 +269,9 @@ RUST_LOG=dockru::server=debug cargo run
 src/
 ├── main.rs              # Entry point, logging setup
 ├── config.rs            # CLI and environment variable parsing
-├── server.rs            # HTTP server, Socket.io, graceful shutdown
+├── server.rs            # HTTP server, Socket.io, graceful shutdown, ServerContext
+├── stack.rs             # Stack management with Docker Compose operations (Phase 6)
+├── terminal.rs          # Terminal/PTY system with portable-pty (Phase 5)
 ├── auth.rs              # Authentication: bcrypt, shake256, JWT
 ├── rate_limiter.rs      # Rate limiting for login, 2FA, API
 ├── socket_auth.rs       # Socket.io auth helpers (check_login, callbacks)
@@ -296,11 +328,13 @@ See [rust-migration-plan.md](./rust-migration-plan.md) for the complete migratio
 - ✅ **Phase 1:** Project Setup & Infrastructure
 - ✅ **Phase 3:** Database Layer & Models
 - ✅ **Phase 4:** Authentication & Security (bcrypt, JWT, rate limiting)
+- ✅ **Phase 5:** Terminal/PTY System (portable-pty, rooms, broadcast)
+- ✅ **Phase 6:** Stack Management Core (Docker operations, YAML/ENV handling)
 - 🟡 **Phase 2:** Core Utilities & Shared Code (partially complete)
 
 **Upcoming:**
-- **Phase 5:** Terminal/PTY System
-- **Phase 6+:** Stack Management, Docker Integration, Socket.io Handlers
+- **Phase 7:** Socket.io Event Handlers (authentication, settings, stack management events)
+- **Phase 8+:** Docker Integration, Agent Management, Scheduled Tasks
 
 ## Compatibility Notes
 
@@ -321,6 +355,26 @@ See [rust-migration-plan.md](./rust-migration-plan.md) for the complete migratio
 - Smaller binary size (~5-10MB stripped)
 - Requires `frontend-dist/` to exist
 - Build with: `cargo build --release`
+
+## Testing Terminal System
+
+```bash
+# Run all tests
+cargo test
+
+# Run only terminal tests
+cargo test terminal::
+
+# Run with output
+cargo test terminal:: -- --nocapture
+
+# Test terminal creation and registry
+cargo test test_terminal_creation
+cargo test test_terminal_registry
+
+# Test shell detection
+cargo test test_detect_shell
+```
 
 ## License
 

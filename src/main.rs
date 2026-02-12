@@ -5,6 +5,8 @@ mod db;
 mod rate_limiter;
 mod server;
 mod socket_auth;
+mod stack;
+mod terminal;
 mod utils;
 
 use anyhow::Result;
