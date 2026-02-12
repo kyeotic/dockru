@@ -1,4 +1,5 @@
 // Main entry point for Dockru Rust backend
+mod agent_manager;
 mod auth;
 mod config;
 mod db;
@@ -7,6 +8,7 @@ mod server;
 mod socket_auth;
 mod socket_handlers;
 mod stack;
+mod static_files;
 mod terminal;
 mod utils;
 

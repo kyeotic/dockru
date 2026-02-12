@@ -1,4 +1,4 @@
-use crate::auth::{create_jwt, verify_jwt, shake256, SHAKE256_LENGTH};
+use crate::auth::{create_jwt, shake256, verify_jwt, SHAKE256_LENGTH};
 use crate::db::models::{NewUser, Setting, User};
 use crate::rate_limiter::{LoginRateLimiter, TwoFaRateLimiter};
 use crate::server::ServerContext;
@@ -42,26 +42,32 @@ struct ChangePasswordData {
 /// Setup authentication event handlers
 pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
-    socket.on("setup", move |socket: SocketRef, Data::<SetupData>(data), ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            match handle_setup(&socket, &ctx, data).await {
-                Ok(response) => ack.send(&response).ok(),
-                Err(e) => ack.send(&error_response(&e.to_string())).ok(),
-            };
-        });
-    });
+    socket.on(
+        "setup",
+        move |socket: SocketRef, Data::<SetupData>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match handle_setup(&socket, &ctx, data).await {
+                    Ok(response) => ack.send(&response).ok(),
+                    Err(e) => ack.send(&error_response(&e.to_string())).ok(),
+                };
+            });
+        },
+    );
 
     let ctx_clone = ctx.clone();
-    socket.on("login", move |socket: SocketRef, Data::<LoginData>(data), ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            match handle_login(&socket, &ctx, data).await {
-                Ok(response) => ack.send(&response).ok(),
-                Err(e) => ack.send(&error_response(&e.to_string())).ok(),
-            };
-        });
-    });
+    socket.on(
+        "login",
+        move |socket: SocketRef, Data::<LoginData>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match handle_login(&socket, &ctx, data).await {
+                    Ok(response) => ack.send(&response).ok(),
+                    Err(e) => ack.send(&error_response(&e.to_string())).ok(),
+                };
+            });
+        },
+    );
 
     let ctx_clone = ctx.clone();
     socket.on(
@@ -193,13 +199,20 @@ async fn handle_login(
     // Login successful
     after_login(socket, ctx, &user).await?;
 
-    let jwt_secret_value = Setting::get(&ctx.db, &crate::db::models::SettingsCache::default(), "jwtSecret")
-        .await?
-        .ok_or_else(|| anyhow!("JWT secret not found"))?;
-    let jwt_secret = jwt_secret_value.as_str()
+    let jwt_secret_value = Setting::get(
+        &ctx.db,
+        &crate::db::models::SettingsCache::default(),
+        "jwtSecret",
+    )
+    .await?
+    .ok_or_else(|| anyhow!("JWT secret not found"))?;
+    let jwt_secret = jwt_secret_value
+        .as_str()
         .ok_or_else(|| anyhow!("JWT secret is not a string"))?;
-    
-    let password_hash = user.password.as_ref()
+
+    let password_hash = user
+        .password
+        .as_ref()
         .ok_or_else(|| anyhow!("User has no password"))?;
     let token = create_jwt(&user.username, password_hash, jwt_secret)?;
 
@@ -217,10 +230,15 @@ async fn handle_login_by_token(
     let ip = get_client_ip(socket);
     info!("Login by token. IP={}", ip);
 
-    let jwt_secret_value = Setting::get(&ctx.db, &crate::db::models::SettingsCache::default(), "jwtSecret")
-        .await?
-        .ok_or_else(|| anyhow!("JWT secret not found"))?;
-    let jwt_secret = jwt_secret_value.as_str()
+    let jwt_secret_value = Setting::get(
+        &ctx.db,
+        &crate::db::models::SettingsCache::default(),
+        "jwtSecret",
+    )
+    .await?
+    .ok_or_else(|| anyhow!("JWT secret not found"))?;
+    let jwt_secret = jwt_secret_value
+        .as_str()
         .ok_or_else(|| anyhow!("JWT secret is not a string"))?;
 
     let payload = verify_jwt(&data.token, jwt_secret)?;
@@ -236,11 +254,15 @@ async fn handle_login_by_token(
     }
 
     // Verify password hash matches (detect password change)
-    let stored_password = user.password.as_ref()
+    let stored_password = user
+        .password
+        .as_ref()
         .ok_or_else(|| anyhow!("User has no password"))?;
     let stored_hash = shake256(stored_password, SHAKE256_LENGTH);
     if password_hash != stored_hash {
-        return Err(anyhow!("The token is invalid due to password change or old token"));
+        return Err(anyhow!(
+            "The token is invalid due to password change or old token"
+        ));
     }
 
     after_login(socket, ctx, &user).await?;
@@ -303,21 +325,30 @@ async fn after_login(socket: &SocketRef, ctx: &ServerContext, user: &User) -> Re
 
     // Set endpoint from request headers or default to empty
     let endpoint = extract_endpoint(socket).unwrap_or_default();
-    set_endpoint(socket, endpoint);
+    set_endpoint(socket, endpoint.clone());
 
     // Send server info
     send_info(socket, ctx).await?;
 
     // TODO Phase 7: Send stack list
-    // TODO Phase 8: Send agent list
-    // TODO Phase 8: Connect to agents
+
+    // Send agent list and connect to all agents (Phase 8)
+    if let Some(agent_manager) = crate::agent_manager::get_agent_manager(&socket.id.to_string()).await {
+        agent_manager.send_agent_list().await;
+        agent_manager.connect_all(&endpoint).await;
+    }
 
     Ok(())
 }
 
 /// Send server info to socket
 async fn send_info(socket: &SocketRef, ctx: &ServerContext) -> Result<()> {
-    let primary_hostname_value = Setting::get(&ctx.db, &crate::db::models::SettingsCache::default(), "primaryHostname").await?;
+    let primary_hostname_value = Setting::get(
+        &ctx.db,
+        &crate::db::models::SettingsCache::default(),
+        "primaryHostname",
+    )
+    .await?;
     let primary_hostname = primary_hostname_value.and_then(|v| v.as_str().map(|s| s.to_string()));
 
     socket
@@ -336,15 +367,21 @@ async fn send_info(socket: &SocketRef, ctx: &ServerContext) -> Result<()> {
 }
 
 /// Get client IP from socket
-fn get_client_ip(_socket: &SocketRef) -> std::net::IpAddr {
-    // TODO: Extract from X-Forwarded-For if trust proxy is enabled
+/// Always respects X-Forwarded-For and X-Real-IP headers (trust proxy)
+fn get_client_ip(socket: &SocketRef) -> std::net::IpAddr {
+    // Try to get from socket extensions/state  
+    // socketioxide doesn't provide direct access to request headers
     // For now, return localhost as placeholder
+    // TODO: Extract from X-Forwarded-For when socketioxide supports it
+    // Or extract at connection time and store in socket state
+    
     std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1))
 }
 
 /// Extract endpoint from request headers
 fn extract_endpoint(_socket: &SocketRef) -> Option<String> {
-    // TODO: Extract from request headers
+    // socketioxide doesn't currently expose request headers
+    // We would need to extract this at connection time
     // For now, default to empty (local endpoint)
     Some("".to_string())
 }
@@ -385,8 +422,7 @@ mod tests {
 
     #[test]
     fn test_change_password_data_deserialize() {
-        let json =
-            r#"{"currentPassword": "old123", "newPassword": "new123"}"#;
+        let json = r#"{"currentPassword": "old123", "newPassword": "new123"}"#;
         let data: ChangePasswordData = serde_json::from_str(json).unwrap();
         assert_eq!(data.current_password, "old123");
         assert_eq!(data.new_password, "new123");

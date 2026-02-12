@@ -7,18 +7,6 @@ use std::path::PathBuf;
 #[command(name = "dockru")]
 #[command(version, about, long_about = None)]
 pub struct Config {
-    /// Path to SSL key file
-    #[arg(long, env = "DOCKGE_SSL_KEY")]
-    pub ssl_key: Option<PathBuf>,
-
-    /// Path to SSL certificate file
-    #[arg(long, env = "DOCKGE_SSL_CERT")]
-    pub ssl_cert: Option<PathBuf>,
-
-    /// SSL key passphrase
-    #[arg(long, env = "DOCKGE_SSL_KEY_PASSPHRASE")]
-    pub ssl_key_passphrase: Option<String>,
-
     /// Port to listen on
     #[arg(short, long, env = "DOCKGE_PORT", default_value = "5001")]
     pub port: u16,
@@ -46,11 +34,6 @@ impl Config {
     pub fn parse() -> Result<Self> {
         let config = <Self as Parser>::parse();
         Ok(config)
-    }
-
-    /// Check if SSL is configured
-    pub fn is_ssl_enabled(&self) -> bool {
-        self.ssl_key.is_some() && self.ssl_cert.is_some()
     }
 
     /// Get the bind address as a string

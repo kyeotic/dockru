@@ -1,10 +1,15 @@
+use crate::agent_manager;
 use crate::server::ServerContext;
-use crate::socket_handlers::{callback_error, check_login};
+use crate::socket_handlers::{
+    callback_error, check_login, error_response_i18n, get_endpoint, ok_response,
+};
+use crate::utils::ALL_ENDPOINTS;
 use anyhow::anyhow;
 use serde::Deserialize;
+use serde_json::json;
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Deserialize)]
 struct AddAgentData {
@@ -18,15 +23,7 @@ struct RemoveAgentData {
     url: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct AgentProxyData {
-    endpoint: Option<String>,
-    event: String,
-    #[serde(flatten)]
-    args: serde_json::Value,
-}
-
-/// Setup agent management event handlers (Phase 8 - stubbed for Phase 7)
+/// Setup agent management event handlers
 pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     // addAgent - Add a remote Dockge instance
     let ctx_clone = ctx.clone();
@@ -36,9 +33,11 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_add_agent(&socket, &ctx, data).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
-                };
+                }
             });
         },
     );
@@ -47,28 +46,28 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "removeAgent",
-        move |socket: SocketRef, Data::<RemoveAgentData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<String>(url), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                match handle_remove_agent(&socket, &ctx, data).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                match handle_remove_agent(&socket, &ctx, &url).await {
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
-                };
+                }
             });
         },
     );
 
     // agent - Proxy event to specific endpoint or broadcast
-    let ctx_clone = ctx.clone();
+    // Format: agent(endpoint: string, eventName: string, ...args)
     socket.on(
         "agent",
-        move |socket: SocketRef, Data::<AgentProxyData>(data), ack: AckSender| {
-            let ctx = ctx_clone.clone();
+        move |socket: SocketRef, Data::<serde_json::Value>(data)| {
             tokio::spawn(async move {
-                match handle_agent_proxy(&socket, &ctx, data).await {
-                    Ok(response) => { ack.send(&response).ok(); },
-                    Err(e) => callback_error(Some(ack), e),
-                };
+                if let Err(e) = handle_agent_proxy(&socket, data).await {
+                    warn!("Agent proxy error: {}", e);
+                }
             });
         },
     );
@@ -76,72 +75,129 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 
 async fn handle_add_agent(
     socket: &SocketRef,
-    _ctx: &ServerContext,
+    ctx: &ServerContext,
     data: AddAgentData,
 ) -> Result<serde_json::Value, anyhow::Error> {
     check_login(socket)?;
 
-    warn!(
-        "Agent management not implemented - addAgent called for {}",
-        data.url
-    );
+    info!("Adding agent: {}", data.url);
 
-    // TODO Phase 8: Implement agent management
-    // 1. Validate URL
-    // 2. Test connection
-    // 3. Store in database
-    // 4. Connect to agent
-    // 5. Send agent list update
+    // Get agent manager
+    let manager = agent_manager::get_agent_manager(&socket.id.to_string())
+        .await
+        .ok_or_else(|| anyhow!("Agent manager not found"))?;
 
-    Err(anyhow!(
-        "Agent management is not yet implemented (Phase 8)"
-    ))
+    // Test connection first
+    manager
+        .test(&data.url, &data.username, &data.password)
+        .await?;
+
+    // Add to database
+    manager
+        .add(&data.url, &data.username, &data.password)
+        .await?;
+
+    // Connect to the agent
+    manager
+        .connect(&data.url, &data.username, &data.password)
+        .await;
+
+    // Broadcast to force refresh other clients
+    // TODO: Implement disconnectAllSocketClients except current socket
+
+    // Send updated agent list
+    manager.send_agent_list().await;
+
+    Ok(ok_response(json!({
+        "msg": "agentAddedSuccessfully",
+        "msgi18n": true,
+    })))
 }
 
 async fn handle_remove_agent(
     socket: &SocketRef,
     _ctx: &ServerContext,
-    data: RemoveAgentData,
+    url: &str,
 ) -> Result<serde_json::Value, anyhow::Error> {
     check_login(socket)?;
 
-    warn!(
-        "Agent management not implemented - removeAgent called for {}",
-        data.url
-    );
+    info!("Removing agent: {}", url);
 
-    // TODO Phase 8: Implement agent removal
-    // 1. Find agent in database
-    // 2. Disconnect from agent
-    // 3. Remove from database
-    // 4. Send agent list update
+    // Get agent manager
+    let manager = agent_manager::get_agent_manager(&socket.id.to_string())
+        .await
+        .ok_or_else(|| anyhow!("Agent manager not found"))?;
 
-    Err(anyhow!(
-        "Agent management is not yet implemented (Phase 8)"
-    ))
+    // Remove agent
+    manager.remove(url).await?;
+
+    // TODO: Broadcast to force refresh other clients
+
+    Ok(ok_response(json!({
+        "msg": "agentRemovedSuccessfully",
+        "msgi18n": true,
+    })))
 }
 
 async fn handle_agent_proxy(
     socket: &SocketRef,
-    _ctx: &ServerContext,
-    data: AgentProxyData,
-) -> Result<serde_json::Value, anyhow::Error> {
+    data: serde_json::Value,
+) -> Result<(), anyhow::Error> {
     check_login(socket)?;
 
-    warn!(
-        "Agent proxy not implemented - event {} for endpoint {:?}",
-        data.event, data.endpoint
-    );
+    // Parse arguments: [endpoint, eventName, ...args]
+    let args_array = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Agent event data must be an array"))?;
 
-    // TODO Phase 8: Implement agent proxy
-    // If endpoint is None or "local":
-    //   - Handle locally
-    // If endpoint is specific:
-    //   - Route to that agent with retry
-    // If endpoint is "*":
-    //   - Broadcast to all agents
+    if args_array.len() < 2 {
+        return Err(anyhow!(
+            "Agent event must have at least endpoint and eventName"
+        ));
+    }
 
-    Err(anyhow!("Agent proxy is not yet implemented (Phase 8)"))
+    let endpoint = args_array[0]
+        .as_str()
+        .ok_or_else(|| anyhow!("Endpoint must be a string"))?;
+
+    let event_name = args_array[1]
+        .as_str()
+        .ok_or_else(|| anyhow!("Event name must be a string"))?;
+
+    // Remaining args
+    let event_args = if args_array.len() > 2 {
+        json!(args_array[2..].to_vec())
+    } else {
+        json!([])
+    };
+
+    let socket_endpoint = get_endpoint(socket);
+
+    // Get agent manager
+    let manager = agent_manager::get_agent_manager(&socket.id.to_string())
+        .await
+        .ok_or_else(|| anyhow!("Agent manager not found"))?;
+
+    if endpoint == ALL_ENDPOINTS {
+        // Send to all endpoints
+        debug!("Sending to all endpoints: {}", event_name);
+        manager.emit_to_all_endpoints(event_name, event_args).await;
+    } else if endpoint.is_empty() || endpoint == socket_endpoint {
+        // Direct connection or matching endpoint - handle locally
+        debug!("Matched local endpoint: {}", event_name);
+
+        // TODO: Call local agent socket handler (AgentSocket::call)
+        // For now, just log
+        warn!("Local agent event handling not implemented: {}", event_name);
+    } else {
+        // Proxy to specific remote endpoint
+        debug!("Proxying request to {} for {}", endpoint, event_name);
+        manager
+            .emit_to_endpoint(endpoint, event_name, event_args)
+            .await?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -162,20 +218,17 @@ mod tests {
 
     #[test]
     fn test_remove_agent_deserialize() {
-        let json = r#"{"url": "http://localhost:5002"}"#;
-        let data: RemoveAgentData = serde_json::from_str(json).unwrap();
-        assert_eq!(data.url, "http://localhost:5002");
+        let json = r#""http://localhost:5002""#;
+        let url: String = serde_json::from_str(json).unwrap();
+        assert_eq!(url, "http://localhost:5002");
     }
 
     #[test]
-    fn test_agent_proxy_deserialize() {
-        let json = r#"{
-            "endpoint": "localhost:5002",
-            "event": "deployStack",
-            "stackName": "test"
-        }"#;
-        let data: AgentProxyData = serde_json::from_str(json).unwrap();
-        assert_eq!(data.endpoint, Some("localhost:5002".to_string()));
-        assert_eq!(data.event, "deployStack");
+    fn test_agent_proxy_parse() {
+        let json = json!(["localhost:5002", "deployStack", {"stackName": "test"}]);
+        let args_array = json.as_array().unwrap();
+        assert_eq!(args_array.len(), 3);
+        assert_eq!(args_array[0].as_str(), Some("localhost:5002"));
+        assert_eq!(args_array[1].as_str(), Some("deployStack"));
     }
 }
