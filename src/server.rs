@@ -88,24 +88,18 @@ impl DockruServer {
     }
 
     /// Initialize Socket.io and set up event handlers
-    fn setup_socketio(&self) -> (SocketIo, socketioxide::layer::SocketIoLayer) {
+    fn setup_socketio(&self, ctx: Arc<ServerContext>) -> (SocketIo, socketioxide::layer::SocketIoLayer) {
         let (socket_layer, io) = SocketIo::new_layer();
 
-        io.ns("/", |socket: SocketRef| {
+        io.ns("/", move |socket: SocketRef| {
             info!("Socket connected: {}", socket.id);
 
-            socket.on("info", |socket: SocketRef, Data::<()>(())| {
-                info!("Info event received from socket {}", socket.id);
-                // TODO: Send server info
-                let _ = socket.emit("info", serde_json::json!({
-                    "version": env!("CARGO_PKG_VERSION"),
-                    "isContainer": std::env::var("DOCKGE_IS_CONTAINER").unwrap_or_default() == "1",
-                }));
-            });
+            // Initialize socket state
+            use crate::socket_handlers::{set_socket_state, SocketState};
+            set_socket_state(&socket.id.to_string(), SocketState::default());
 
-            socket.on_disconnect(|socket: SocketRef| {
-                info!("Socket disconnected: {}", socket.id);
-            });
+            // Setup all event handlers
+            crate::socket_handlers::setup_all_handlers(socket.clone(), ctx.clone());
         });
 
         (io, socket_layer)
@@ -131,11 +125,18 @@ pub async fn serve(config: Config) -> Result<()> {
     // Run migrations
     db.migrate().await?;
 
-    // Setup Socket.io
-    let (io, socket_layer) = server.setup_socketio();
+    // Create server context (before socket setup so we can pass it in)
+    let ctx = Arc::new(ServerContext::new(
+        server.config.clone(),
+        SocketIo::new_layer().1, // Temporary io, will be replaced
+        db.pool().clone(),
+    ));
 
-    // Create server context
-    let _ctx = Arc::new(ServerContext::new(
+    // Setup Socket.io with context
+    let (io, socket_layer) = server.setup_socketio(ctx.clone());
+
+    // Update context with the correct io instance
+    let ctx = Arc::new(ServerContext::new(
         server.config.clone(),
         io,
         db.pool().clone(),

@@ -5,6 +5,7 @@ mod db;
 mod rate_limiter;
 mod server;
 mod socket_auth;
+mod socket_handlers;
 mod stack;
 mod terminal;
 mod utils;
