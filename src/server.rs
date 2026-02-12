@@ -127,13 +127,13 @@ pub async fn serve(config: Config) -> Result<()> {
 
     // Initialize database
     let db = Database::new(&server.config.data_dir).await?;
-    
+
     // Run migrations
     db.migrate().await?;
 
     // Setup Socket.io
     let (io, socket_layer) = server.setup_socketio();
-    
+
     // Create server context
     let _ctx = Arc::new(ServerContext::new(
         server.config.clone(),
