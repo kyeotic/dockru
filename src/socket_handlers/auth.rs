@@ -28,10 +28,6 @@ struct LoginData {
     token: Option<String>, // 2FA token
 }
 
-#[derive(Debug, Deserialize)]
-struct LoginByTokenData {
-    token: String,
-}
 
 #[derive(Debug, Deserialize)]
 struct ChangePasswordData {
@@ -175,11 +171,11 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "loginByToken",
-        move |socket: SocketRef, Data::<LoginByTokenData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<String>(token), ack: AckSender| {
             let ctx = ctx_clone.clone();
             info!("'loginByToken' event from socket {}", socket.id);
             tokio::spawn(async move {
-                match handle_login_by_token(&socket, &ctx, data).await {
+                match handle_login_by_token(&socket, &ctx, &token).await {
                     Ok(response) => {
                         info!("loginByToken succeeded for socket {}", socket.id);
                         match ack.send(&response) {
@@ -340,7 +336,7 @@ async fn handle_login(
 async fn handle_login_by_token(
     socket: &SocketRef,
     ctx: &ServerContext,
-    data: LoginByTokenData,
+    token: &str,
 ) -> Result<serde_json::Value> {
     let ip = get_client_ip(socket);
     info!("Login by token. IP={}", ip);
@@ -356,7 +352,7 @@ async fn handle_login_by_token(
         .as_str()
         .ok_or_else(|| anyhow!("JWT secret is not a string"))?;
 
-    let payload = verify_jwt(&data.token, jwt_secret)?;
+    let payload = verify_jwt(token, jwt_secret)?;
     let username = payload.username;
     let password_hash = payload.h;
 
