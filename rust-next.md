@@ -65,7 +65,7 @@ This document catalogs features not yet implemented, known limitations, technica
 **What's Needed:**
 use rust comperize-np: https://github.com/leruetkins/composerize-np
 
-**Priority:** Low - Nice-to-have feature for new users
+**Priority:** Medium - Needed for parity with TS Version
 
 ---
 
@@ -131,19 +131,20 @@ use rust comperize-np: https://github.com/leruetkins/composerize-np
 
 ### 2.2 Password Validation for Auth Disable
 
-**Status:** Not implemented  
+**Status:** ✅ Implemented  
 **Location:** [src/socket_handlers/settings.rs](src/socket_handlers/settings.rs#L131)
 
 **Current Behavior:**
-- Can change `disableAuth` from `false` to `true` without password check
-- Security risk: anyone with access can disable auth
+- When changing `disableAuth` from `false` to `true`, the server requires the current password
+- Password is verified against the logged-in user's stored bcrypt hash
+- Missing or incorrect password returns an error and blocks the setting change
+- Re-enabling auth (setting `disableAuth` back to `false`) does not require a password
 
-**What's Needed:**
-- Require current password when changing `disableAuth` setting
-- Verify password before applying setting change
-- Rate limit password attempts
-
-**Priority:** High - Security vulnerability
+**Implementation:**
+- `handle_set_settings` checks if `disableAuth` is being set to `true`
+- Compares against current stored value to detect the transition
+- Validates `currentPassword` argument (sent as second positional arg from frontend)
+- Uses `User::verify_password()` for bcrypt verification
 
 ---
 
@@ -163,13 +164,13 @@ use rust comperize-np: https://github.com/leruetkins/composerize-np
 - Cache stack list between broadcasts
 - Invalidate cache on stack operations
 
-**Priority:** Low - Performance acceptable for typical usage
+**Priority:** Very Low - Performance acceptable for typical usage, does not run when no connections
 
 ---
 
 ### 2.4 YAML Comment Preservation
 
-**Status:** Stubbed  
+**Status:** Stubbed (Is it really?)
 **Location:** [src/utils/yaml_utils.rs](src/utils/yaml_utils.rs#L80)
 
 **Current Behavior:**
@@ -183,7 +184,7 @@ Three options:
 2. Implement custom YAML parser with AST preservation  
 3. String-based manipulation for simple edits
 
-**Priority:** Low - Nice-to-have, not essential
+**Priority:** High - essential UI feature
 
 ---
 
@@ -227,7 +228,7 @@ Three options:
 - Wait for socketioxide API enhancement
 - Or maintain own room membership tracking
 
-**Priority:** Low - Minor resource inefficiency
+**Priority:** Medium - resource inefficiency, possible memory leaking
 
 ---
 
@@ -259,7 +260,7 @@ Three options:
 **Location:** [src/socket_handlers/settings.rs](src/socket_handlers/settings.rs#L166)
 
 **Issue:**
-- Reads `DOCKGE_IS_CONTAINER` env var but never set
+- Reads `DOCKRU_IS_CONTAINER` env var but never set
 - Always reports `isContainer: false` in settings
 - Only affects UI display (icon/badge)
 
@@ -269,7 +270,7 @@ Three options:
 
 **Resolution:**
 - Auto-detect container environment (check for `/.dockerenv`, cgroup, etc.)
-- Set `DOCKGE_IS_CONTAINER=1` in Dockerfile
+- Set `DOCKRU_IS_CONTAINER=1` in Dockerfile
 
 **Priority:** Low - Cosmetic issue only
 
@@ -302,30 +303,23 @@ Three options:
 
 ## 4. Technical Debt
 
-### 4.1 Agent Passwords Stored in Plaintext
+### 4.1 Agent Passwords Encrypted at Rest
 
-**Status:** Documented security issue  
-**Location:** [RUST_README.md](RUST_README.md#L599) Technical Debt section
+**Status:** ✅ Implemented  
+**Locations:**
+- [src/utils/crypto.rs](src/utils/crypto.rs) - `encrypt_password()` / `decrypt_password()` using AES-256-GCM
+- [src/db/models/agent.rs](src/db/models/agent.rs) - Encrypt on store, decrypt on load
+- [src/server.rs](src/server.rs) - Encryption secret initialization & plaintext migration at startup
 
-**Issue:**
-- Agent model stores passwords in plaintext in SQLite
-- Matches TypeScript behavior (compatibility)
-- Database compromise exposes all remote agent credentials
+**Implementation:**
+- Passwords encrypted with AES-256-GCM before storage in SQLite
+- Encryption key derived from `jwtSecret` setting via SHA3-256
+- Random 96-bit nonce per encryption (no nonce reuse)
+- Encrypted values prefixed with `enc:` to distinguish from legacy plaintext
+- Automatic migration of existing plaintext passwords on startup
+- In-memory `Agent` structs always hold decrypted plaintext (transparent to callers)
 
-**Risk:** High if database file is compromised
-
-**Recommended Fix:**
-- Encrypt passwords at rest using AES-GCM
-- Derive encryption key from main application secret
-- Use `aes-gcm` crate for authenticated encryption
-- Implement key rotation mechanism
-- Consider OS keyring integration (e.g., `keyring` crate)
-
-**Workaround:**
-- Restrict database file permissions (`chmod 600`)
-- Protect data directory from unauthorized access
-
-**Priority:** High - Security vulnerability
+**Priority:** ~~High~~ Done
 
 ---
 
@@ -352,7 +346,7 @@ Three options:
 - Better error messages
 - Programmatic container management
 
-**Priority:** Medium - Current approach works but fragile
+**Priority:** High - Current approach works but fragile
 
 ---
 
@@ -553,26 +547,31 @@ Three options:
 ## 8. Priority Summary
 
 ### High Priority (Security/Blocking)
-1. ⚠️ Agent password encryption (plaintext storage)
-2. ⚠️ Password validation when disabling auth
+1. ✅ Agent password encryption (AES-256-GCM at rest)
+2. ✅ Password validation when disabling auth
 3. 📝 Migration guide for existing users
+4. ⚠️ YAML comment preservation
+5. ⚠️ Docker CLI → SDK migration
 
 ### Medium Priority (Functionality)
-4. Socket state management and authentication filtering
-5. X-Forwarded-For IP extraction (rate limiting accuracy)
-6. Two-factor authentication implementation
-7. Integration and load testing
-8. Cross-platform testing
-9. Deployment documentation
+6. Socket state management and authentication filtering
+7. X-Forwarded-For IP extraction (rate limiting accuracy)
+8. Two-factor authentication implementation
+9. Composerize feature
+10. Terminal keep-alive (room membership tracking)
+11. Integration and load testing
+12. Cross-platform testing
+13. Deployment documentation
 
 ### Low Priority (Nice-to-Have)
-10. Interactive container terminals
-11. Composerize feature
-12. Stack list caching
-13. YAML comment preservation
-14. Docker SDK migration
+14. Stack list caching
 15. Various performance optimizations
 16. Beta version channel support
+17. Local agent event handling
+18. Docker network list enrichment
+19. Docker container detection
+20. Error handling consistency
+21. API documentation
 
 ---
 
@@ -580,7 +579,7 @@ Three options:
 
 ### Immediate Actions (Before Production)
 1. Implement agent password encryption
-2. Add password validation for disableAuth setting
+2. ~~Add password validation for disableAuth setting~~ ✅
 3. Write migration guide
 4. Cross-platform testing
 
@@ -622,5 +621,5 @@ When implementing items from this document:
 
 ---
 
-*Last updated: February 12, 2026*  
+*Last updated: February 13, 2026*  
 *Based on: Phase 10 completion (all 10 migration phases complete)*

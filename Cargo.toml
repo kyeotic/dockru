@@ -97,6 +97,12 @@ jsonwebtoken = "9"
 # Rate limiting
 governor = "0.6"
 
+# Symmetric encryption for agent password at-rest encryption
+aes-gcm = "0.10"
+
+# Base64 encoding for encrypted data storage
+base64 = "0.22"
+
 # Phase 8: Agent Management System
 # Socket.io client for connecting to remote Dockge instances
 rust_socketio = { version = "0.6", features = ["async"] }

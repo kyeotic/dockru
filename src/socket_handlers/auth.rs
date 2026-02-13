@@ -254,6 +254,15 @@ async fn handle_setup(
     // Initialize JWT secret if not exists
     init_jwt_secret(&ctx.db).await?;
 
+    // Update encryption secret in server context so agent passwords can be encrypted
+    let jwt_secret_value: Option<(String,)> =
+        sqlx::query_as("SELECT value FROM setting WHERE key = 'jwtSecret'")
+            .fetch_optional(&ctx.db)
+            .await?;
+    if let Some((secret,)) = jwt_secret_value {
+        ctx.set_encryption_secret(secret);
+    }
+
     // Broadcast that setup is complete
     broadcast_to_authenticated(&ctx.io, "setup", json!({}));
 

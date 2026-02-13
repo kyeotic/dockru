@@ -45,13 +45,14 @@ pub struct AgentManager {
     socket_id: String,
     socket: SocketRef,
     db: SqlitePool,
+    encryption_secret: String,
     agent_clients: Arc<RwLock<HashMap<String, AgentClient>>>,
     first_connect_time: Arc<RwLock<DateTime<Utc>>>,
 }
 
 impl AgentManager {
     /// Create a new AgentManager for a socket connection
-    pub fn new(socket: SocketRef, db: SqlitePool) -> Self {
+    pub fn new(socket: SocketRef, db: SqlitePool, encryption_secret: String) -> Self {
         let socket_id = socket.id.to_string();
         info!("Creating AgentManager for socket {}", socket_id);
 
@@ -59,6 +60,7 @@ impl AgentManager {
             socket_id,
             socket,
             db,
+            encryption_secret,
             agent_clients: Arc::new(RwLock::new(HashMap::new())),
             first_connect_time: Arc::new(RwLock::new(Utc::now())),
         }
@@ -228,7 +230,7 @@ impl AgentManager {
             password: password.to_string(),
             active: true,
         };
-        let agent = Agent::create(&self.db, new_agent).await?;
+        let agent = Agent::create(&self.db, new_agent, &self.encryption_secret).await?;
         let endpoint = agent.endpoint()?;
         info!("Added agent: {} (endpoint: {})", url, endpoint);
         Ok(agent)
@@ -236,7 +238,7 @@ impl AgentManager {
 
     /// Remove a remote Dockru agent
     pub async fn remove(&self, url: &str) -> Result<()> {
-        let agent = Agent::find_by_url(&self.db, url)
+        let agent = Agent::find_by_url(&self.db, url, &self.encryption_secret)
             .await?
             .ok_or_else(|| anyhow!("Agent not found"))?;
 
@@ -537,7 +539,7 @@ impl AgentManager {
             return;
         }
 
-        let agents = match Agent::find_all(&self.db).await {
+        let agents = match Agent::find_all(&self.db, &self.encryption_secret).await {
             Ok(agents) => agents,
             Err(e) => {
                 error!("Failed to list agents: {}", e);
@@ -667,7 +669,7 @@ impl AgentManager {
 
     /// Send the agent list to the client
     pub async fn send_agent_list(&self) {
-        let agents = match Agent::find_all(&self.db).await {
+        let agents = match Agent::find_all(&self.db, &self.encryption_secret).await {
             Ok(agents) => agents,
             Err(e) => {
                 error!("Failed to list agents: {}", e);

@@ -1,5 +1,12 @@
 // Cryptographic utilities
+use aes_gcm::{
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Nonce,
+};
+use anyhow::{Context, Result};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::Rng;
+use sha3::{Digest, Sha3_256};
 use std::time::Duration;
 use tokio::time::sleep as tokio_sleep;
 
@@ -59,6 +66,98 @@ pub async fn sleep(ms: u64) {
     tokio_sleep(Duration::from_millis(ms)).await;
 }
 
+/// Prefix for encrypted values to distinguish them from plaintext
+const ENCRYPTED_PREFIX: &str = "enc:";
+
+/// Derive a 256-bit AES key from a secret string using SHA3-256.
+///
+/// # Arguments
+/// * `secret` - The secret string (e.g. jwtSecret from DB)
+///
+/// # Returns
+/// A 32-byte key suitable for AES-256-GCM
+fn derive_encryption_key(secret: &str) -> [u8; 32] {
+    let mut hasher = Sha3_256::new();
+    hasher.update(secret.as_bytes());
+    let result = hasher.finalize();
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&result);
+    key
+}
+
+/// Encrypt a plaintext string using AES-256-GCM.
+///
+/// The output is base64-encoded and prefixed with "enc:" to identify encrypted values.
+/// Format: `enc:<base64(nonce + ciphertext)>`
+///
+/// # Arguments
+/// * `plaintext` - The string to encrypt
+/// * `secret` - Secret used to derive the encryption key
+///
+/// # Returns
+/// An encrypted, base64-encoded string with "enc:" prefix
+pub fn encrypt_password(plaintext: &str, secret: &str) -> Result<String> {
+    let key = derive_encryption_key(secret);
+    let cipher = Aes256Gcm::new_from_slice(&key).context("Failed to create AES-GCM cipher")?;
+
+    // Generate a random 96-bit nonce
+    let mut nonce_bytes = [0u8; 12];
+    rand::thread_rng().fill(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Encryption failed: {}", e))?;
+
+    // Concatenate nonce + ciphertext and base64-encode
+    let mut combined = Vec::with_capacity(12 + ciphertext.len());
+    combined.extend_from_slice(&nonce_bytes);
+    combined.extend_from_slice(&ciphertext);
+
+    Ok(format!("{}{}", ENCRYPTED_PREFIX, BASE64.encode(&combined)))
+}
+
+/// Decrypt an AES-256-GCM encrypted password string.
+///
+/// Expects input in the format: `enc:<base64(nonce + ciphertext)>`
+///
+/// # Arguments
+/// * `encrypted` - The encrypted string (with "enc:" prefix)
+/// * `secret` - Secret used to derive the encryption key
+///
+/// # Returns
+/// The decrypted plaintext string
+pub fn decrypt_password(encrypted: &str, secret: &str) -> Result<String> {
+    let encoded = encrypted
+        .strip_prefix(ENCRYPTED_PREFIX)
+        .context("Encrypted value missing 'enc:' prefix")?;
+
+    let combined = BASE64
+        .decode(encoded)
+        .context("Failed to base64-decode encrypted value")?;
+
+    if combined.len() < 12 {
+        return Err(anyhow::anyhow!("Encrypted data too short (missing nonce)"));
+    }
+
+    let (nonce_bytes, ciphertext) = combined.split_at(12);
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    let key = derive_encryption_key(secret);
+    let cipher = Aes256Gcm::new_from_slice(&key).context("Failed to create AES-GCM cipher")?;
+
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
+
+    String::from_utf8(plaintext).context("Decrypted value is not valid UTF-8")
+}
+
+/// Check if a stored password value is already encrypted.
+pub fn is_password_encrypted(value: &str) -> bool {
+    value.starts_with(ENCRYPTED_PREFIX)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,5 +214,81 @@ mod tests {
         let elapsed = start.elapsed();
         // Should sleep for at least 100ms
         assert!(elapsed.as_millis() >= 100);
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let secret = "my_jwt_secret_value_12345";
+        let plaintext = "agent_password_123!@#";
+
+        let encrypted = encrypt_password(plaintext, secret).unwrap();
+
+        // Should have enc: prefix
+        assert!(encrypted.starts_with("enc:"));
+        assert!(is_password_encrypted(&encrypted));
+
+        // Should decrypt back to original
+        let decrypted = decrypt_password(&encrypted, secret).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_encrypt_produces_different_outputs() {
+        let secret = "my_jwt_secret";
+        let plaintext = "same_password";
+
+        let encrypted1 = encrypt_password(plaintext, secret).unwrap();
+        let encrypted2 = encrypt_password(plaintext, secret).unwrap();
+
+        // Different nonces should produce different ciphertexts
+        assert_ne!(encrypted1, encrypted2);
+
+        // Both should decrypt to the same value
+        assert_eq!(
+            decrypt_password(&encrypted1, secret).unwrap(),
+            decrypt_password(&encrypted2, secret).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_decrypt_wrong_secret_fails() {
+        let encrypted = encrypt_password("password", "correct_secret").unwrap();
+        let result = decrypt_password(&encrypted, "wrong_secret");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_is_password_encrypted() {
+        assert!(is_password_encrypted("enc:AAAA"));
+        assert!(!is_password_encrypted("plaintext_password"));
+        assert!(!is_password_encrypted(""));
+    }
+
+    #[test]
+    fn test_decrypt_invalid_format() {
+        let secret = "test";
+        // Missing prefix
+        assert!(decrypt_password("not_encrypted", secret).is_err());
+        // Invalid base64
+        assert!(decrypt_password("enc:!!!invalid!!!", secret).is_err());
+        // Too short (no nonce)
+        assert!(decrypt_password("enc:AAAA", secret).is_err());
+    }
+
+    #[test]
+    fn test_encrypt_empty_password() {
+        let secret = "secret";
+        let encrypted = encrypt_password("", secret).unwrap();
+        let decrypted = decrypt_password(&encrypted, secret).unwrap();
+        assert_eq!(decrypted, "");
+    }
+
+    #[test]
+    fn test_encrypt_unicode_password() {
+        let secret = "secret";
+        let plaintext = "pässwörd_日本語_🔒";
+        let encrypted = encrypt_password(plaintext, secret).unwrap();
+        let decrypted = decrypt_password(&encrypted, secret).unwrap();
+        assert_eq!(decrypted, plaintext);
     }
 }

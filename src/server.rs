@@ -34,6 +34,9 @@ pub struct ServerContext {
     pub version_checker: VersionChecker,
     /// Notifies the broadcast loop to fire immediately (e.g. on first client connect)
     pub broadcast_notify: Arc<tokio::sync::Notify>,
+    /// Secret used to encrypt/decrypt agent passwords at rest.
+    /// Derived from the jwtSecret setting; empty until setup is complete.
+    pub encryption_secret: Arc<std::sync::RwLock<String>>,
 }
 
 impl ServerContext {
@@ -51,7 +54,20 @@ impl ServerContext {
             cache,
             version_checker,
             broadcast_notify: Arc::new(tokio::sync::Notify::new()),
+            encryption_secret: Arc::new(std::sync::RwLock::new(String::new())),
         }
+    }
+
+    /// Get the encryption secret. Returns empty string if not yet initialized
+    /// (i.e. before first user setup).
+    pub fn get_encryption_secret(&self) -> String {
+        self.encryption_secret.read().unwrap().clone()
+    }
+
+    /// Set the encryption secret (called at startup and after initial setup).
+    pub fn set_encryption_secret(&self, secret: String) {
+        let mut w = self.encryption_secret.write().unwrap();
+        *w = secret;
     }
 }
 
@@ -188,6 +204,7 @@ impl DockruServer {
             let agent_manager = std::sync::Arc::new(crate::agent_manager::AgentManager::new(
                 socket.clone(),
                 ctx.db.clone(),
+                ctx.get_encryption_secret(),
             ));
             let socket_id = socket.id.to_string();
             let agent_manager_clone = agent_manager.clone();
@@ -286,6 +303,27 @@ pub async fn serve(config: Config) -> Result<()> {
         cache,
         version_checker,
     ));
+
+    // Initialize encryption secret from jwtSecret setting (if app has been set up)
+    {
+        use crate::db::models::setting::Setting;
+        let jwt_secret: Option<(String,)> =
+            sqlx::query_as("SELECT value FROM setting WHERE key = 'jwtSecret'")
+                .fetch_optional(db.pool())
+                .await?;
+
+        if let Some((secret,)) = jwt_secret {
+            ctx.set_encryption_secret(secret.clone());
+
+            // Migrate any existing plaintext agent passwords to encrypted form
+            use crate::db::models::agent::Agent;
+            match Agent::migrate_plaintext_passwords(db.pool(), &secret).await {
+                Ok(0) => {}
+                Ok(n) => info!("Migrated {} agent password(s) to encrypted storage", n),
+                Err(e) => error!("Failed to migrate agent passwords: {}", e),
+            }
+        }
+    }
 
     // Now set up namespace handlers with the real context
     DockruServer::setup_socketio_handlers(&io, ctx.clone());

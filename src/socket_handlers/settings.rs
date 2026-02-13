@@ -1,4 +1,4 @@
-use crate::db::models::{Setting, SettingsCache};
+use crate::db::models::{Setting, SettingsCache, User};
 use crate::server::ServerContext;
 use crate::socket_handlers::{callback_error, callback_ok, check_login, emit_agent};
 use anyhow::{anyhow, Result};
@@ -124,7 +124,7 @@ async fn handle_set_settings(
     socket: &SocketRef,
     ctx: &ServerContext,
     data: SetSettingsData,
-    _current_password: Option<String>,
+    current_password: Option<String>,
 ) -> Result<()> {
     let user_id = check_login(socket)?;
     debug!("User {} updating settings", user_id);
@@ -150,8 +150,46 @@ async fn handle_set_settings(
 
     let cache = SettingsCache::default();
 
-    // Check for disableAuth change - this requires current password verification
-    // TODO: Implement password validation when changing disableAuth from false to true
+    // Check for disableAuth change - require current password when enabling disableAuth
+    if let Some(new_disable_auth) = settings_to_save.get("disableAuth") {
+        let wants_disable = new_disable_auth.as_bool().unwrap_or(false)
+            || new_disable_auth
+                .as_str()
+                .map(|s| s == "true")
+                .unwrap_or(false);
+
+        if wants_disable {
+            // Check current setting value
+            let current_value = Setting::get(&ctx.db, &cache, "disableAuth").await?;
+            let currently_disabled = current_value
+                .as_ref()
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+                || current_value
+                    .as_ref()
+                    .and_then(|v| v.as_str())
+                    .map(|s| s == "true")
+                    .unwrap_or(false);
+
+            if !currently_disabled {
+                // Changing from auth enabled to auth disabled - require password
+                let password = current_password
+                    .as_deref()
+                    .filter(|p| !p.is_empty())
+                    .ok_or_else(|| {
+                        anyhow!("Current password is required to disable authentication")
+                    })?;
+
+                let user = User::find_by_id(&ctx.db, user_id)
+                    .await?
+                    .ok_or_else(|| anyhow!("User not found"))?;
+
+                if !user.verify_password(password)? {
+                    return Err(anyhow!("Incorrect password"));
+                }
+            }
+        }
+    }
 
     for (key, value) in settings_to_save {
         Setting::set(&ctx.db, &cache, &key, &value, Some("general")).await?;
