@@ -22,7 +22,7 @@ use std::{
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 /// Shared server context bundling dependencies
 #[derive(Clone)]
@@ -32,6 +32,8 @@ pub struct ServerContext {
     pub db: SqlitePool,
     pub cache: SettingsCache,
     pub version_checker: VersionChecker,
+    /// Notifies the broadcast loop to fire immediately (e.g. on first client connect)
+    pub broadcast_notify: Arc<tokio::sync::Notify>,
 }
 
 impl ServerContext {
@@ -48,6 +50,7 @@ impl ServerContext {
             db,
             cache,
             version_checker,
+            broadcast_notify: Arc::new(tokio::sync::Notify::new()),
         }
     }
 }
@@ -191,6 +194,9 @@ impl DockruServer {
             tokio::spawn(async move {
                 crate::agent_manager::set_agent_manager(&socket_id, agent_manager_clone).await;
             });
+
+            // Notify the broadcast loop so the new client gets a stack list immediately
+            ctx.broadcast_notify.notify_one();
 
             // Send server info
             let ctx_for_info = ctx.clone();
@@ -353,14 +359,34 @@ fn start_scheduled_tasks(ctx: Arc<ServerContext>) {
             .start_interval(ctx_clone.db.clone(), ctx_clone.cache.clone());
     });
 
-    // Start stack list broadcast (every 10 seconds)
+    // Start stack list broadcast (every 10 seconds, only when clients are connected)
+    // Also fires immediately when a client connects via broadcast_notify.
     let ctx_clone = ctx.clone();
     tokio::spawn(async move {
         use tokio::time::{interval, Duration};
         let mut interval = interval(Duration::from_secs(10));
 
         loop {
-            interval.tick().await;
+            // Wait for either the 10s tick or a client-connect notification
+            tokio::select! {
+                _ = interval.tick() => {},
+                _ = ctx_clone.broadcast_notify.notified() => {
+                    // Reset the interval so we don't double-fire shortly after
+                    interval.reset();
+                },
+            }
+
+            // Skip expensive Docker polling when no clients are connected
+            let has_clients = ctx_clone
+                .io
+                .sockets()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false);
+            if !has_clients {
+                debug!("No connected clients, skipping stack list broadcast");
+                continue;
+            }
+
             if let Err(e) = broadcast_stack_list_to_authenticated(&ctx_clone).await {
                 error!("Failed to broadcast stack list: {}", e);
             }
