@@ -5,9 +5,9 @@ import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
 import { AgentSocket } from "../../../common/agent-socket";
 
-let socket : Socket;
+let socket: Socket;
 
-let terminalMap : Map<string, Terminal> = new Map();
+let terminalMap: Map<string, Terminal> = new Map();
 
 export default defineComponent({
     data() {
@@ -22,10 +22,8 @@ export default defineComponent({
                 showReverseProxyGuide: true,
                 connecting: false,
             },
-            info: {
-
-            },
-            remember: (localStorage.remember !== "0"),
+            info: {},
+            remember: localStorage.remember !== "0",
             loggedIn: false,
             allowLoginDialog: false,
             username: null,
@@ -37,24 +35,19 @@ export default defineComponent({
             allAgentStackList: {} as Record<string, object>,
 
             // online / offline / connecting
-            agentStatusList: {
-
-            },
+            agentStatusList: {},
 
             // Agent List
-            agentList: {
-
-            },
+            agentList: {},
         };
     },
     computed: {
-
         agentCount() {
             return Object.keys(this.agentList).length;
         },
 
         completeStackList() {
-            let list : Record<string, object> = {};
+            let list: Record<string, object> = {};
 
             for (let stackName in this.stackList) {
                 list[stackName + "_"] = this.stackList[stackName];
@@ -63,7 +56,8 @@ export default defineComponent({
             for (let endpoint in this.allAgentStackList) {
                 let instance = this.allAgentStackList[endpoint];
                 for (let stackName in instance.stackList) {
-                    list[stackName + "_" + endpoint] = instance.stackList[stackName];
+                    list[stackName + "_" + endpoint] =
+                        instance.stackList[stackName];
                 }
             }
             return list;
@@ -98,10 +92,8 @@ export default defineComponent({
             }
             return this.info.version === this.frontendVersion;
         },
-
     },
     watch: {
-
         "socketIO.connected"() {
             if (this.socketIO.connected) {
                 this.agentStatusList[""] = "online";
@@ -111,7 +103,7 @@ export default defineComponent({
         },
 
         remember() {
-            localStorage.remember = (this.remember) ? "1" : "0";
+            localStorage.remember = this.remember ? "1" : "0";
         },
 
         // Reload the SPA if the server version is changed.
@@ -126,11 +118,9 @@ export default defineComponent({
     },
     mounted() {
         return;
-
     },
     methods: {
-
-        endpointDisplayFunction(endpoint : string) {
+        endpointDisplayFunction(endpoint: string) {
             if (endpoint) {
                 return endpoint;
             } else {
@@ -150,7 +140,7 @@ export default defineComponent({
             }
 
             this.socketIO.initedSocketIO = true;
-            let url : string;
+            let url: string;
             const env = process.env.NODE_ENV || "production";
             if (env === "development" || localStorage.dev === "dev") {
                 url = location.protocol + "//" + location.hostname + ":5001";
@@ -162,11 +152,13 @@ export default defineComponent({
                 this.socketIO.connecting = true;
             }, 1500);
 
-            socket = io(url);
+            socket = io(url, {
+                transports: ["websocket"],
+            });
 
             // Handling events from agents
             let agentSocket = new AgentSocket();
-            socket.on("agent", (eventName : unknown, ...args : unknown[]) => {
+            socket.on("agent", (eventName: unknown, ...args: unknown[]) => {
                 agentSocket.call(eventName, ...args);
             });
 
@@ -188,7 +180,7 @@ export default defineComponent({
                     } else {
                         // Timeout if it is not actually auto login
                         setTimeout(() => {
-                            if (! this.loggedIn) {
+                            if (!this.loggedIn) {
                                 this.allowLoginDialog = true;
                                 this.storage().removeItem("token");
                             }
@@ -208,7 +200,9 @@ export default defineComponent({
             });
 
             socket.on("connect_error", (err) => {
-                console.error(`Failed to connect to the backend. Socket.io connect_error: ${err.message}`);
+                console.error(
+                    `Failed to connect to the backend. Socket.io connect_error: ${err.message}`,
+                );
                 this.socketIO.connectionErrorMsg = `${this.$t("Cannot connect to the socket server.")} [${err}] ${this.$t("reconnecting...")}`;
                 this.socketIO.showReverseProxyGuide = true;
                 this.socketIO.connected = false;
@@ -254,7 +248,8 @@ export default defineComponent({
                                 stackList: {},
                             };
                         }
-                        this.allAgentStackList[res.endpoint].stackList = res.stackList;
+                        this.allAgentStackList[res.endpoint].stackList =
+                            res.stackList;
                     }
                 }
             });
@@ -293,15 +288,15 @@ export default defineComponent({
          * The storage currently in use
          * @returns Current storage
          */
-        storage() : Storage {
-            return (this.remember) ? localStorage : sessionStorage;
+        storage(): Storage {
+            return this.remember ? localStorage : sessionStorage;
         },
 
-        getSocket() : Socket {
+        getSocket(): Socket {
             return socket;
         },
 
-        emitAgent(endpoint : string, eventName : string, ...args : unknown[]) {
+        emitAgent(endpoint: string, eventName: string, ...args: unknown[]) {
             this.getSocket().emit("agent", endpoint, eventName, ...args);
         },
 
@@ -326,30 +321,34 @@ export default defineComponent({
          * @param {loginCB} callback Callback to call with result
          * @returns {void}
          */
-        login(username : string, password : string, token : string, callback) {
-            this.getSocket().emit("login", {
-                username,
-                password,
-                token,
-            }, (res) => {
-                if (res.tokenRequired) {
+        login(username: string, password: string, token: string, callback) {
+            this.getSocket().emit(
+                "login",
+                {
+                    username,
+                    password,
+                    token,
+                },
+                (res) => {
+                    if (res.tokenRequired) {
+                        callback(res);
+                    }
+
+                    if (res.ok) {
+                        this.storage().token = res.token;
+                        this.socketIO.token = res.token;
+                        this.loggedIn = true;
+                        this.username = this.getJWTPayload()?.username;
+
+                        this.afterLogin();
+
+                        // Trigger Chrome Save Password
+                        history.pushState({}, "");
+                    }
+
                     callback(res);
-                }
-
-                if (res.ok) {
-                    this.storage().token = res.token;
-                    this.socketIO.token = res.token;
-                    this.loggedIn = true;
-                    this.username = this.getJWTPayload()?.username;
-
-                    this.afterLogin();
-
-                    // Trigger Chrome Save Password
-                    history.pushState({}, "");
-                }
-
-                callback(res);
-            });
+                },
+            );
         },
 
         /**
@@ -357,11 +356,11 @@ export default defineComponent({
          * @param {string} token Token to log in with
          * @returns {void}
          */
-        loginByToken(token : string) {
+        loginByToken(token: string) {
             socket.emit("loginByToken", token, (res) => {
                 this.allowLoginDialog = true;
 
-                if (! res.ok) {
+                if (!res.ok) {
                     this.logout();
                 } else {
                     this.loggedIn = true;
@@ -376,7 +375,7 @@ export default defineComponent({
          * @returns {void}
          */
         logout() {
-            socket.emit("logout", () => { });
+            socket.emit("logout", () => {});
             this.storage().removeItem("token");
             this.socketIO.token = null;
             this.loggedIn = false;
@@ -387,15 +386,15 @@ export default defineComponent({
         /**
          * @returns {void}
          */
-        clearData() {
+        clearData() {},
 
-        },
+        afterLogin() {},
 
-        afterLogin() {
-
-        },
-
-        bindTerminal(endpoint : string, terminalName : string, terminal : Terminal) {
+        bindTerminal(
+            endpoint: string,
+            terminalName: string,
+            terminal: Terminal,
+        ) {
             // Load terminal, get terminal screen
             this.emitAgent(endpoint, "terminalJoin", terminalName, (res) => {
                 if (res.ok) {
@@ -407,9 +406,8 @@ export default defineComponent({
             });
         },
 
-        unbindTerminal(terminalName : string) {
+        unbindTerminal(terminalName: string) {
             terminalMap.delete(terminalName);
         },
-
-    }
+    },
 });

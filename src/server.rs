@@ -12,7 +12,7 @@ use axum::{
     routing::get,
     Router,
 };
-use socketioxide::{extract::SocketRef, SocketIo};
+use socketioxide::{extract::SocketRef, SocketIo, TransportType};
 use sqlx::SqlitePool;
 use std::{
     fs,
@@ -104,25 +104,14 @@ impl DockruServer {
         );
 
         // Serve static files from frontend-dist with pre-compressed support
+        // Use fallback_service instead of routes to allow socket.io layer to intercept first
         if PathBuf::from("./frontend-dist").exists() {
             let static_files = Arc::new(PreCompressedStaticFiles::new("./frontend-dist"));
-
-            // Clone for the fallback handler
-            let static_files_fallback = static_files.clone();
             let index_html = self.index_html.clone();
 
-            // Static file handler
-            router = router.route(
-                "/*path",
-                get(move |uri: Uri, req: Request| {
-                    let static_files = static_files.clone();
-                    async move { static_files.handle(uri, req).await }
-                }),
-            );
-
-            // SPA fallback - serve index.html for unmatched routes
+            // Use fallback for SPA - handler for all unmatched routes
             router = router.fallback(move |uri: Uri, req: Request| {
-                let static_files = static_files_fallback.clone();
+                let static_files = static_files.clone();
                 let index_html = index_html.clone();
                 async move {
                     // Try to serve the file first
@@ -151,7 +140,8 @@ impl DockruServer {
             });
         }
 
-        // Add middleware
+        // Add middleware - layers are applied in reverse order (last = innermost)
+        // Socket.io layer must be innermost to handle /socket.io/* paths
         let router = if cfg!(debug_assertions) {
             info!("Development mode: CORS enabled for all origins");
             router.layer(
@@ -171,15 +161,21 @@ impl DockruServer {
         router
     }
 
-    /// Initialize Socket.io and set up event handlers
-    fn setup_socketio(
-        &self,
-        ctx: Arc<ServerContext>,
-    ) -> (SocketIo, socketioxide::layer::SocketIoLayer) {
-        let (socket_layer, io) = SocketIo::new_layer();
+    /// Create the Socket.IO layer with transport configuration
+    fn create_socketio_layer(&self) -> (SocketIo, socketioxide::layer::SocketIoLayer) {
+        let (socket_layer, io) = SocketIo::builder()
+            .transports([TransportType::Websocket])
+            .build_layer();
 
+        info!("Socket.IO configured with WebSocket-only transport");
+
+        (io, socket_layer)
+    }
+
+    /// Set up Socket.IO namespace handlers (must be called after ServerContext is created)
+    fn setup_socketio_handlers(io: &SocketIo, ctx: Arc<ServerContext>) {
         io.ns("/", move |socket: SocketRef| {
-            info!("Socket connected: {}", socket.id);
+            info!("Socket connected: {} (transport: websocket)", socket.id);
 
             // Initialize socket state
             use crate::socket_handlers::{set_socket_state, SocketState};
@@ -196,7 +192,33 @@ impl DockruServer {
                 crate::agent_manager::set_agent_manager(&socket_id, agent_manager_clone).await;
             });
 
-            // Setup disconnect handler
+            // Send server info
+            let ctx_for_info = ctx.clone();
+            let socket_for_info = socket.clone();
+            tokio::spawn(async move {
+                if let Err(e) =
+                    crate::broadcasts::send_info(&socket_for_info, &ctx_for_info, true).await
+                {
+                    warn!("Failed to send info: {}", e);
+                }
+
+                // Check if setup is needed and emit "setup" event
+                let user_count = crate::db::models::User::count(&ctx_for_info.db)
+                    .await
+                    .unwrap_or(1);
+                if user_count == 0 {
+                    info!("No users found, emitting 'setup' to redirect client");
+                    match socket_for_info.emit("setup", ()) {
+                        Ok(_) => info!(
+                            "'setup' event emitted successfully to {}",
+                            socket_for_info.id
+                        ),
+                        Err(e) => warn!("Failed to emit 'setup' event: {:?}", e),
+                    }
+                }
+            });
+
+            // Setup disconnect handler - single handler for all cleanup
             let socket_id_for_disconnect = socket.id.to_string();
             socket.on_disconnect(move || {
                 let socket_id = socket_id_for_disconnect.clone();
@@ -219,8 +241,6 @@ impl DockruServer {
             // Setup all event handlers
             crate::socket_handlers::setup_all_handlers(socket.clone(), ctx.clone());
         });
-
-        (io, socket_layer)
     }
 }
 
@@ -249,26 +269,20 @@ pub async fn serve(config: Config) -> Result<()> {
     // Create version checker
     let version_checker = VersionChecker::new(env!("CARGO_PKG_VERSION").to_string());
 
-    // Create server context (before socket setup so we can pass it in)
+    // Create Socket.IO layer first (with transport config)
+    let (io, socket_layer) = server.create_socketio_layer();
+
+    // Create server context with the real SocketIo instance
     let ctx = Arc::new(ServerContext::new(
         server.config.clone(),
-        SocketIo::new_layer().1, // Temporary io, will be replaced
-        db.pool().clone(),
-        cache.clone(),
-        version_checker.clone(),
-    ));
-
-    // Setup Socket.io with context
-    let (io, socket_layer) = server.setup_socketio(ctx.clone());
-
-    // Update context with the correct io instance
-    let ctx = Arc::new(ServerContext::new(
-        server.config.clone(),
-        io,
+        io.clone(),
         db.pool().clone(),
         cache,
         version_checker,
     ));
+
+    // Now set up namespace handlers with the real context
+    DockruServer::setup_socketio_handlers(&io, ctx.clone());
 
     // Build router
     let app = server.build_router(socket_layer);

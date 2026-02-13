@@ -123,6 +123,7 @@ pub fn emit_agent(socket: &SocketRef, event: &str, data: Value) -> Result<()> {
 
 /// Broadcast to all authenticated sockets
 pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data: Value) {
+    // TODO:
     // Phase 8: Iterate through all sockets and emit only to authenticated ones
     // For now, broadcast to all
     io.emit(event.to_string(), &data).ok();

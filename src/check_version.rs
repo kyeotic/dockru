@@ -55,6 +55,12 @@ impl VersionChecker {
     ///
     /// Returns Ok(true) if a check was performed, Ok(false) if disabled
     pub async fn check_now(&self, pool: &SqlitePool, cache: &SettingsCache) -> Result<bool> {
+        // Skip version check in development mode
+        if cfg!(debug_assertions) {
+            debug!("Version check skipped in development mode");
+            return Ok(false);
+        }
+
         // Check if update checking is enabled
         let check_update = Setting::get(pool, cache, "checkUpdate")
             .await?

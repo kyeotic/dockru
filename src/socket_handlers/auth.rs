@@ -1,15 +1,17 @@
-use crate::auth::{create_jwt, shake256, verify_jwt, SHAKE256_LENGTH};
+use crate::auth::{create_jwt, hash_password, shake256, verify_jwt, SHAKE256_LENGTH};
 use crate::db::models::{NewUser, Setting, User};
 use crate::rate_limiter::{LoginRateLimiter, TwoFaRateLimiter};
 use crate::server::ServerContext;
 use crate::socket_handlers::{
     broadcast_to_authenticated, callback_error, callback_ok, check_login, error_response,
-    error_response_i18n, remove_socket_state, set_endpoint, set_user_id,
+    error_response_i18n, set_endpoint, set_user_id,
 };
 use anyhow::{anyhow, Result};
+use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
 use socketioxide::extract::{AckSender, Data, SocketRef};
+use sqlx::SqlitePool;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
@@ -41,16 +43,104 @@ struct ChangePasswordData {
 
 /// Setup authentication event handlers
 pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
+    // Check if setup is needed
+    let ctx_clone = ctx.clone();
+    socket.on("needSetup", move |socket: SocketRef, ack: AckSender| {
+        let ctx = ctx_clone.clone();
+        info!("'needSetup' event from socket {}", socket.id);
+        tokio::spawn(async move {
+            let user_count = User::count(&ctx.db).await.unwrap_or(0);
+            let need_setup = user_count == 0;
+            info!(
+                "needSetup response: {} (user_count={})",
+                need_setup, user_count
+            );
+            match ack.send(&need_setup) {
+                Ok(_) => info!("needSetup ack sent successfully"),
+                Err(e) => warn!("needSetup ack failed: {:?}", e),
+            }
+        });
+    });
+
     let ctx_clone = ctx.clone();
     socket.on(
         "setup",
-        move |socket: SocketRef, Data::<SetupData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<serde_json::Value>(raw_data), ack: AckSender| {
             let ctx = ctx_clone.clone();
+            info!("=== Setup event received ===");
+            info!(
+                "Raw data type: {}",
+                if raw_data.is_array() {
+                    "array"
+                } else if raw_data.is_object() {
+                    "object"
+                } else if raw_data.is_string() {
+                    "string"
+                } else {
+                    "other"
+                }
+            );
+            info!("Raw data value: {:?}", raw_data);
+
             tokio::spawn(async move {
-                match handle_setup(&socket, &ctx, data).await {
-                    Ok(response) => ack.send(&response).ok(),
-                    Err(e) => ack.send(&error_response(&e.to_string())).ok(),
+                info!("Starting setup processing...");
+                // Socket.IO sends multiple arguments as an array
+                let (username, password) = if let Some(arr) = raw_data.as_array() {
+                    if arr.len() >= 2 {
+                        let user = arr[0].as_str().unwrap_or("").to_string();
+                        let pass = arr[1].as_str().unwrap_or("").to_string();
+                        info!(
+                            "Parsed from array - username: {}, password length: {}",
+                            user,
+                            pass.len()
+                        );
+                        (user, pass)
+                    } else {
+                        warn!("Array has fewer than 2 elements: {}", arr.len());
+                        ack.send(&error_response("Invalid data format")).ok();
+                        return;
+                    }
+                } else {
+                    // Try parsing as tuple
+                    match serde_json::from_value::<(String, String)>(raw_data.clone()) {
+                        Ok((user, pass)) => {
+                            info!(
+                                "Parsed as tuple - username: {}, password length: {}",
+                                user,
+                                pass.len()
+                            );
+                            (user, pass)
+                        }
+                        Err(e) => {
+                            warn!("Failed to parse: {}. Raw data was: {:?}", e, raw_data);
+                            ack.send(&error_response(&format!("Invalid data format: {}", e)))
+                                .ok();
+                            return;
+                        }
+                    }
                 };
+
+                info!("Calling handle_setup...");
+                let setup_data = SetupData { username, password };
+                let result = handle_setup(&socket, &ctx, setup_data).await;
+                info!("handle_setup returned: {:?}", result.is_ok());
+
+                let response = match result {
+                    Ok(resp) => {
+                        info!("Setup successful, response: {:?}", resp);
+                        resp
+                    }
+                    Err(e) => {
+                        warn!("Setup failed: {}", e);
+                        error_response(&e.to_string())
+                    }
+                };
+
+                info!("About to send ack with response: {:?}", response);
+                match ack.send(&response) {
+                    Ok(_) => info!("✓ Acknowledgment sent successfully"),
+                    Err(e) => warn!("✗ Failed to send acknowledgment: {:?}", e),
+                }
             });
         },
     );
@@ -60,10 +150,23 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         "login",
         move |socket: SocketRef, Data::<LoginData>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
+            info!(
+                "'login' event from socket {} for user '{}'",
+                socket.id, data.username
+            );
             tokio::spawn(async move {
                 match handle_login(&socket, &ctx, data).await {
-                    Ok(response) => ack.send(&response).ok(),
-                    Err(e) => ack.send(&error_response(&e.to_string())).ok(),
+                    Ok(response) => {
+                        info!("Login handler succeeded for socket {}", socket.id);
+                        match ack.send(&response) {
+                            Ok(_) => info!("Login ack sent to socket {}", socket.id),
+                            Err(e) => warn!("Login ack failed for socket {}: {:?}", socket.id, e),
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Login handler failed for socket {}: {}", socket.id, e);
+                        ack.send(&error_response(&e.to_string())).ok();
+                    }
                 };
             });
         },
@@ -74,10 +177,22 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         "loginByToken",
         move |socket: SocketRef, Data::<LoginByTokenData>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
+            info!("'loginByToken' event from socket {}", socket.id);
             tokio::spawn(async move {
                 match handle_login_by_token(&socket, &ctx, data).await {
-                    Ok(response) => ack.send(&response).ok(),
-                    Err(e) => ack.send(&error_response_i18n("authInvalidToken")).ok(),
+                    Ok(response) => {
+                        info!("loginByToken succeeded for socket {}", socket.id);
+                        match ack.send(&response) {
+                            Ok(_) => info!("loginByToken ack sent to socket {}", socket.id),
+                            Err(e) => {
+                                warn!("loginByToken ack failed for socket {}: {:?}", socket.id, e)
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn!("loginByToken failed for socket {}: {}", socket.id, e);
+                        ack.send(&error_response_i18n("authInvalidToken")).ok();
+                    }
                 };
             });
         },
@@ -108,11 +223,8 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         });
     });
 
-    // Handle disconnect - clean up socket state
-    socket.on_disconnect(move |socket: SocketRef| {
-        debug!("Socket disconnected: {}", socket.id);
-        remove_socket_state(&socket.id.to_string());
-    });
+    // Note: disconnect handler is registered in server.rs setup_socketio_handlers()
+    // to avoid duplicate handler registration
 }
 
 async fn handle_setup(
@@ -143,6 +255,9 @@ async fn handle_setup(
         timezone: None,
     };
     User::create(&ctx.db, new_user).await?;
+
+    // Initialize JWT secret if not exists
+    init_jwt_secret(&ctx.db).await?;
 
     // Broadcast that setup is complete
     broadcast_to_authenticated(&ctx.io, "setup", json!({}));
@@ -404,4 +519,42 @@ mod tests {
         assert_eq!(data.current_password, "old123");
         assert_eq!(data.new_password, "new123");
     }
+}
+
+/// Generate a random alphanumeric secret (like TypeScript genSecret)
+fn gen_secret(length: usize) -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let mut rng = rand::thread_rng();
+    (0..length)
+        .map(|_| {
+            let idx = rng.gen_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect()
+}
+
+/// Initialize JWT secret in database if not exists
+/// Matches TypeScript initJWTSecret() behavior
+async fn init_jwt_secret(pool: &SqlitePool) -> Result<()> {
+    // Check if JWT secret already exists
+    let existing: Option<(String,)> =
+        sqlx::query_as("SELECT value FROM setting WHERE key = 'jwtSecret'")
+            .fetch_optional(pool)
+            .await?;
+
+    if existing.is_none() {
+        // Generate new secret: hash a random 64-char string
+        let secret = gen_secret(64);
+        let hashed_secret = hash_password(&secret)?;
+
+        // Store in database
+        sqlx::query("INSERT INTO setting (key, value, type) VALUES ('jwtSecret', ?1, NULL)")
+            .bind(&hashed_secret)
+            .execute(pool)
+            .await?;
+
+        info!("Generated and stored new JWT secret");
+    }
+
+    Ok(())
 }

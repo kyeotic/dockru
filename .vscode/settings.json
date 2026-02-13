@@ -2,6 +2,8 @@
     "chat.tools.terminal.autoApprove": {
         "cargo build": true,
         "cargo run": true,
-        "cargo test": true
+        "cargo test": true,
+        "sqlite3": true,
+        "./target/debug/dockru": true
     }
 }

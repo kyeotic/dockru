@@ -30,20 +30,26 @@ This document catalogs features not yet implemented, known limitations, technica
 
 ### 1.2 Interactive Container Terminals
 
-**Status:** Not implemented  
-**Location:** [src/socket_handlers/terminal.rs](src/socket_handlers/terminal.rs#L235)
+**Status:** ✅ Implemented  
+**Location:** [src/stack.rs](src/stack.rs#L685) | [src/socket_handlers/terminal.rs](src/socket_handlers/terminal.rs#L218)
 
 **Current Behavior:**
-- `interactiveTerminal` socket event returns "not yet implemented" error
-- Cannot open shell in running containers
+- `interactiveTerminal` socket event creates interactive shell in running containers
+- Can open shell in running containers via `docker compose exec`
+- Supports multiple shell types (bash, sh, ash, etc.)
+- Reuses existing terminal sessions when reconnecting
 
-**What's Needed:**
-- Implement `Stack::join_container_terminal(service_name, shell)` method
-- Execute `docker compose exec <service> <shell>` in PTY
-- Handle shell detection (bash, sh, ash for Alpine)
-- Terminal input/output piping
+**Implementation:**
+- `Stack::join_container_terminal(socket, service_name, shell, index)` method
+- Executes `docker compose exec <service> <shell>` in interactive PTY
+- Defaults to "sh" if no shell specified
+- Supports multiple concurrent terminals via index parameter
+- Terminal input/output piping via Socket.io events
 
-**Priority:** Medium - Convenient feature but can use `docker exec` externally
+**Testing Notes:**
+- Test with different shells (bash, sh, ash for Alpine)
+- Test reconnection to existing terminal sessions
+- Test multiple simultaneous connections to different services
 
 ---
 
@@ -57,11 +63,7 @@ This document catalogs features not yet implemented, known limitations, technica
 - Cannot convert `docker run` commands to compose files
 
 **What's Needed:**
-Three implementation options:
-1. Shell out to Node.js `composerize` package (easiest)
-2. Port composerize logic to Rust (most native)
-3. Use external Rust port if one exists
-4. use rust comperize-np: https://github.com/leruetkins/composerize-np
+use rust comperize-np: https://github.com/leruetkins/composerize-np
 
 **Priority:** Low - Nice-to-have feature for new users
 

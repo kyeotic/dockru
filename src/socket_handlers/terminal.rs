@@ -57,7 +57,9 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_main_terminal(&socket, &ctx, terminal_name).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -66,15 +68,20 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 
     // checkMainTerminal
     let ctx_clone = ctx.clone();
-    socket.on("checkMainTerminal", move |socket: SocketRef, ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            match handle_check_main_terminal(&socket, &ctx).await {
-                Ok(response) => { ack.send(&response).ok(); },
-                Err(e) => callback_error(Some(ack), e),
-            };
-        });
-    });
+    socket.on(
+        "checkMainTerminal",
+        move |socket: SocketRef, ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match handle_check_main_terminal(&socket, &ctx).await {
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                };
+            });
+        },
+    );
 
     // interactiveTerminal
     let ctx_clone = ctx.clone();
@@ -84,7 +91,9 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_interactive_terminal(&socket, &ctx, data).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -99,7 +108,9 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_terminal_join(&socket, &ctx, terminal_name).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -114,7 +125,9 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_leave_combined_terminal(&socket, &ctx, &stack_name).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -187,11 +200,17 @@ async fn handle_main_terminal(
         )?;
         term.set_rows(50).await?;
         debug!("Main terminal created");
-        
+
         // Detect shell and start terminal
         let shell = detect_shell();
-        term.clone().start(shell.clone(), vec![], ctx.config.stacks_dir.to_string_lossy().to_string()).await?;
-        
+        term.clone()
+            .start(
+                shell.clone(),
+                vec![],
+                ctx.config.stacks_dir.to_string_lossy().to_string(),
+            )
+            .await?;
+
         term
     };
 
@@ -221,27 +240,29 @@ async fn handle_interactive_terminal(
 ) -> Result<serde_json::Value> {
     check_login(socket)?;
 
-    debug!("Interactive terminal - Stack: {}, Service: {}, Shell: {}", 
-           data.stack_name, data.service_name, data.shell);
+    debug!(
+        "Interactive terminal - Stack: {}, Service: {}, Shell: {}",
+        data.stack_name, data.service_name, data.shell
+    );
 
     let endpoint = get_endpoint(socket);
-    let stack = Stack::get_stack(
-        ctx.clone().into(),
-        &data.stack_name,
-        endpoint,
-    )
-    .await?;
+    let stack = Stack::get_stack(ctx.clone().into(), &data.stack_name, endpoint).await?;
 
-    // TODO: Implement join_container_terminal in Stack
-    // For now, return not implemented error
-    return Err(anyhow!("Interactive container terminals not yet implemented"));
+    // Default shell if empty
+    let shell = if data.shell.is_empty() {
+        "sh".to_string()
+    } else {
+        data.shell.clone()
+    };
 
-    // When implemented, it should be:
-    // stack.join_container_terminal(socket.clone(), &data.service_name, &data.shell).await?;
+    // Join container terminal (index 0 for first connection)
+    stack
+        .join_container_terminal(socket.clone(), &data.service_name, &shell, 0)
+        .await?;
 
-    // Ok(json!({
-    //     "ok": true
-    // }))
+    Ok(json!({
+        "ok": true
+    }))
 }
 
 async fn handle_terminal_join(

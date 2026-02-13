@@ -11,7 +11,7 @@ use crate::server::ServerContext;
 use crate::terminal::Terminal;
 use crate::utils::constants::{
     ACCEPTED_COMPOSE_FILE_NAMES, COMBINED_TERMINAL_COLS, COMBINED_TERMINAL_ROWS, CREATED_FILE,
-    CREATED_STACK, EXITED, PROGRESS_TERMINAL_ROWS, RUNNING, UNKNOWN,
+    CREATED_STACK, EXITED, PROGRESS_TERMINAL_ROWS, RUNNING, TERMINAL_ROWS, UNKNOWN,
 };
 use crate::utils::terminal::{get_combined_terminal_name, get_compose_terminal_name};
 use anyhow::{Context, Result};
@@ -660,6 +660,60 @@ impl Stack {
         if let Some(terminal) = Terminal::get_terminal(&terminal_name).await {
             terminal.leave(socket).await?;
         }
+
+        Ok(())
+    }
+
+    /// Join a container's interactive terminal (docker compose exec <service> <shell>)
+    ///
+    /// # Arguments
+    /// * `socket` - Socket to join for terminal I/O
+    /// * `service_name` - Service name from compose file
+    /// * `shell` - Shell to execute (e.g., "/bin/bash", "sh", "ash")
+    /// * `index` - Terminal instance index (for multiple connections to same service)
+    pub async fn join_container_terminal(
+        &self,
+        socket: SocketRef,
+        service_name: &str,
+        shell: &str,
+        index: usize,
+    ) -> Result<()> {
+        let terminal_name = crate::utils::terminal::get_container_exec_terminal_name(
+            &self.endpoint,
+            &self.name,
+            service_name,
+            index,
+        );
+
+        let terminal = if let Some(term) = Terminal::get_terminal(&terminal_name).await {
+            debug!("Terminal {} already exists, reusing it", terminal_name);
+            term
+        } else {
+            // Create new interactive terminal
+            let options = self.get_compose_options("exec", &[service_name, shell]);
+            let term = Terminal::new_interactive(
+                self.ctx.io.clone(),
+                terminal_name.clone(),
+                "docker".to_string(),
+                options.clone(),
+                self.path().display().to_string(),
+            );
+            term.set_rows(TERMINAL_ROWS).await?;
+            debug!(
+                "Terminal {} created for service {} with shell {}",
+                terminal_name, service_name, shell
+            );
+            term
+        };
+
+        terminal.join(socket).await?;
+        terminal
+            .start(
+                "docker".to_string(),
+                self.get_compose_options("exec", &[service_name, shell]),
+                self.path().display().to_string(),
+            )
+            .await?;
 
         Ok(())
     }
