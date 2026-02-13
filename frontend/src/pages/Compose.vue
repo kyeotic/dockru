@@ -380,7 +380,7 @@ import {
     getComposeTerminalName,
     PROGRESS_TERMINAL_ROWS,
     RUNNING,
-} from "../../../common/util-common";
+} from "../../common/util-common";
 import { BModal } from "bootstrap-vue-next";
 import NetworkInput from "../components/NetworkInput.vue";
 import dotenv from "dotenv";

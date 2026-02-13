@@ -1,5 +1,5 @@
 // Dayjs init inside this, so it has to be the first import
-import "../../common/util-common";
+import "../common/util-common";
 
 import { createApp, defineComponent, h } from "vue";
 import App from "./App.vue";
@@ -44,11 +44,7 @@ function rootApp() {
     const toast = useToast();
 
     return defineComponent({
-        mixins: [
-            socket,
-            lang,
-            theme,
-        ],
+        mixins: [socket, lang, theme],
         data() {
             return {
                 loggedIn: false,
@@ -56,11 +52,8 @@ function rootApp() {
                 username: null,
             };
         },
-        computed: {
-
-        },
+        computed: {},
         methods: {
-
             /**
              * Show success or error toast dependant on response status code
              * @param {object} res Response object
@@ -87,7 +80,7 @@ function rootApp() {
              * @param {string} msg Message to show
              * @returns {void}
              */
-            toastSuccess(msg : string) {
+            toastSuccess(msg: string) {
                 toast.success(this.$t(msg));
             },
 
@@ -96,7 +89,7 @@ function rootApp() {
              * @param {string} msg Message to show
              * @returns {void}
              */
-            toastError(msg : string) {
+            toastError(msg: string) {
                 toast.error(this.$t(msg));
             },
         },

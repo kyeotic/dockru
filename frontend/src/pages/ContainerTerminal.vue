@@ -1,27 +1,37 @@
 <template>
     <transition name="slide-fade" appear>
         <div>
-            <h1 class="mb-3">{{$t("terminal")}} - {{ serviceName }} ({{ stackName }})</h1>
+            <h1 class="mb-3">
+                {{ $t("terminal") }} - {{ serviceName }} ({{ stackName }})
+            </h1>
 
             <div class="mb-3">
-                <router-link :to="sh" class="btn btn-normal me-2">{{ $t("Switch to sh") }}</router-link>
+                <router-link :to="sh" class="btn btn-normal me-2">{{
+                    $t("Switch to sh")
+                }}</router-link>
             </div>
 
-            <Terminal class="terminal" :rows="20" mode="interactive" :name="terminalName" :stack-name="stackName" :service-name="serviceName" :shell="shell" :endpoint="endpoint"></Terminal>
+            <Terminal
+                class="terminal"
+                :rows="20"
+                mode="interactive"
+                :name="terminalName"
+                :stack-name="stackName"
+                :service-name="serviceName"
+                :shell="shell"
+                :endpoint="endpoint"
+            ></Terminal>
         </div>
     </transition>
 </template>
 
 <script>
-import { getContainerExecTerminalName } from "../../../common/util-common";
+import { getContainerExecTerminalName } from "../../common/util-common";
 
 export default {
-    components: {
-    },
+    components: {},
     data() {
-        return {
-
-        };
+        return {};
     },
     computed: {
         stackName() {
@@ -37,7 +47,12 @@ export default {
             return this.$route.params.serviceName;
         },
         terminalName() {
-            return getContainerExecTerminalName(this.endpoint, this.stackName, this.serviceName, 0);
+            return getContainerExecTerminalName(
+                this.endpoint,
+                this.stackName,
+                this.serviceName,
+                0,
+            );
         },
         sh() {
             let endpoint = this.$route.params.endpoint;
@@ -59,12 +74,8 @@ export default {
             return data;
         },
     },
-    mounted() {
-
-    },
-    methods: {
-
-    }
+    mounted() {},
+    methods: {},
 };
 </script>
 

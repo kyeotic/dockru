@@ -13,16 +13,15 @@ export default defineConfig({
         port: 5000,
     },
     define: {
-        "FRONTEND_VERSION": JSON.stringify(process.env.npm_package_version),
+        FRONTEND_VERSION: JSON.stringify(process.env.npm_package_version),
     },
-    root: "./frontend",
     build: {
         outDir: "../frontend-dist",
     },
     plugins: [
         vue(),
         Components({
-            resolvers: [ BootstrapVueNextResolver() ],
+            resolvers: [BootstrapVueNextResolver()],
         }),
         viteCompression({
             algorithm: "gzip",

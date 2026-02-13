@@ -1,26 +1,18 @@
 default:
     @just --list
 
-# Run the Rust backend locally with cargo watch
-dev-backend:
-    DOCKRU_STACKS_DIR=./stacks cargo watch -x run
-
-# Run the frontend dev server
-dev-frontend:
-    npm run dev:frontend
-
 # Run backend with cargo watch, serving pre-built frontend from frontend-dist/
-dev-built:
+dev:
     DOCKRU_STACKS_DIR=./stacks cargo watch -x run
 
 # Run both backend and frontend in development mode
-dev:
+dev-all:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Starting development servers..."
     echo "Backend will run on http://localhost:5001"
     echo "Frontend dev server will run on http://localhost:5173"
-    cargo build && npm install && npx concurrently -k -r "DOCKRU_STACKS_DIR=./stacks cargo watch -x run" "npm run dev:frontend"
+    cargo build && cd frontend && npm install && cd .. && npx concurrently -k -r "DOCKRU_STACKS_DIR=./stacks cargo watch -x run" "cd frontend && npm run dev"
 
 # Build the Rust backend
 build-backend:
@@ -28,7 +20,7 @@ build-backend:
 
 # Build the frontend
 build-frontend:
-    npm run build:frontend
+    cd frontend && npm run build
 
 # Build both backend and frontend
 build: build-frontend build-backend
@@ -51,12 +43,12 @@ lint:
 
 # Lint frontend
 lint-frontend:
-    npm run lint
+    cd frontend && npm run lint
 
 # Format code
 fmt:
     cargo fmt
-    npm run fmt
+    cd frontend && npm run fmt
 
 # Check formatting without modifying files
 fmt-check:
@@ -106,7 +98,7 @@ migrate:
 # Install dependencies
 install:
     cargo fetch
-    npm install
+    cd frontend && npm install
 
 # Watch and run tests on file changes
 test-watch:

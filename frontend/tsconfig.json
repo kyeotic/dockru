@@ -6,8 +6,5 @@
         "moduleResolution": "bundler",
         "skipLibCheck": true
     },
-    "include": [
-        "backend/**/*",
-        "common/**/*"
-    ]
+    "include": ["src/**/*", "common/**/*"]
 }

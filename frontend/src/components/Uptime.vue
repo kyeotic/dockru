@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { statusColor, statusNameShort } from "../../../common/util-common";
+import { statusColor, statusNameShort } from "../../common/util-common";
 
 export default {
     props: {
@@ -45,7 +45,6 @@ export default {
 <style scoped>
 .badge {
     min-width: 62px;
-
 }
 
 .fixed-width {

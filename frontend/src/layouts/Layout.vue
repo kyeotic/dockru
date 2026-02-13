@@ -151,7 +151,7 @@
 <script>
 import Login from "../components/Login.vue";
 import { compareVersions } from "compare-versions";
-import { ALL_ENDPOINTS } from "../../../common/util-common";
+import { ALL_ENDPOINTS } from "../../common/util-common";
 
 export default {
     components: {

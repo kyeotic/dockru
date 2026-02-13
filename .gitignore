@@ -14,3 +14,8 @@ frontend-dist
 /target
 Cargo.lock
 
+
+/data/
+frontend-dist/
+/stacks/
+/test-stacks/

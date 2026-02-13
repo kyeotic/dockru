@@ -112,7 +112,7 @@ import {
     EXITED,
     RUNNING,
     UNKNOWN,
-} from "../../../common/util-common";
+} from "../../common/util-common";
 
 export default {
     components: {

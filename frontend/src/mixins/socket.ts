@@ -3,7 +3,7 @@ import { Socket } from "socket.io-client";
 import { defineComponent } from "vue";
 import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
-import { AgentSocket } from "../../../common/agent-socket";
+import { AgentSocket } from "../../common/agent-socket";
 
 let socket: Socket;
 
