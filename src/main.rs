@@ -1,6 +1,8 @@
 // Main entry point for Dockru Rust backend
 mod agent_manager;
 mod auth;
+mod broadcasts;
+mod check_version;
 mod config;
 mod db;
 mod rate_limiter;

@@ -21,7 +21,9 @@
                             </div>
                             <div class="col">
                                 <h3>{{ $t("inactive") }}</h3>
-                                <span class="num inactive">{{ inactiveNum }}</span>
+                                <span class="num inactive">{{
+                                    inactiveNum
+                                }}</span>
                             </div>
                         </div>
                     </div>
@@ -29,60 +31,154 @@
                     <!-- Docker Run -->
                     <h2 class="mb-3">{{ $t("Docker Run") }}</h2>
                     <div class="mb-3">
-                        <textarea id="name" v-model="dockerRunCommand" type="text" class="form-control docker-run shadow-box" required placeholder="docker run ..."></textarea>
+                        <textarea
+                            id="name"
+                            v-model="dockerRunCommand"
+                            type="text"
+                            class="form-control docker-run shadow-box"
+                            required
+                            placeholder="docker run ..."
+                        ></textarea>
                     </div>
 
-                    <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
+                    <button
+                        class="btn-normal btn mb-4"
+                        @click="convertDockerRun"
+                    >
+                        {{ $t("Convert to Compose") }}
+                    </button>
                 </div>
                 <!-- Right -->
                 <div class="col-md-5">
                     <!-- Agent List -->
                     <div class="shadow-box big-padding">
-                        <h4 class="mb-3">{{ $tc("dockgeAgent", 2) }} <span class="badge bg-warning" style="font-size: 12px;">beta</span></h4>
+                        <h4 class="mb-3">
+                            {{ $tc("dockruAgent", 2) }}
+                            <span
+                                class="badge bg-warning"
+                                style="font-size: 12px"
+                                >beta</span
+                            >
+                        </h4>
 
-                        <div v-for="(agent, endpoint) in $root.agentList" :key="endpoint" class="mb-3 agent">
+                        <div
+                            v-for="(agent, endpoint) in $root.agentList"
+                            :key="endpoint"
+                            class="mb-3 agent"
+                        >
                             <!-- Agent Status -->
                             <template v-if="$root.agentStatusList[endpoint]">
-                                <span v-if="$root.agentStatusList[endpoint] === 'online'" class="badge bg-primary me-2">{{ $t("agentOnline") }}</span>
-                                <span v-else-if="$root.agentStatusList[endpoint] === 'offline'" class="badge bg-danger me-2">{{ $t("agentOffline") }}</span>
-                                <span v-else class="badge bg-secondary me-2">{{ $t($root.agentStatusList[endpoint]) }}</span>
+                                <span
+                                    v-if="
+                                        $root.agentStatusList[endpoint] ===
+                                        'online'
+                                    "
+                                    class="badge bg-primary me-2"
+                                    >{{ $t("agentOnline") }}</span
+                                >
+                                <span
+                                    v-else-if="
+                                        $root.agentStatusList[endpoint] ===
+                                        'offline'
+                                    "
+                                    class="badge bg-danger me-2"
+                                    >{{ $t("agentOffline") }}</span
+                                >
+                                <span v-else class="badge bg-secondary me-2">{{
+                                    $t($root.agentStatusList[endpoint])
+                                }}</span>
                             </template>
 
                             <!-- Agent Display Name -->
-                            <span v-if="endpoint === ''">{{ $t("currentEndpoint") }}</span>
-                            <a v-else :href="agent.url" target="_blank">{{ endpoint }}</a>
+                            <span v-if="endpoint === ''">{{
+                                $t("currentEndpoint")
+                            }}</span>
+                            <a v-else :href="agent.url" target="_blank">{{
+                                endpoint
+                            }}</a>
 
                             <!-- Remove Button -->
-                            <font-awesome-icon v-if="endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agent.url] = !showRemoveAgentDialog[agent.url]" />
+                            <font-awesome-icon
+                                v-if="endpoint !== ''"
+                                class="ms-2 remove-agent"
+                                icon="trash"
+                                @click="
+                                    showRemoveAgentDialog[agent.url] =
+                                        !showRemoveAgentDialog[agent.url]
+                                "
+                            />
 
                             <!-- Remoe Agent Dialog -->
-                            <BModal v-model="showRemoveAgentDialog[agent.url]" :okTitle="$t('removeAgent')" okVariant="danger" @ok="removeAgent(agent.url)">
+                            <BModal
+                                v-model="showRemoveAgentDialog[agent.url]"
+                                :okTitle="$t('removeAgent')"
+                                okVariant="danger"
+                                @ok="removeAgent(agent.url)"
+                            >
                                 <p>{{ agent.url }}</p>
                                 {{ $t("removeAgentMsg") }}
                             </BModal>
                         </div>
 
-                        <button v-if="!showAgentForm" class="btn btn-normal" @click="showAgentForm = !showAgentForm">{{ $t("addAgent") }}</button>
+                        <button
+                            v-if="!showAgentForm"
+                            class="btn btn-normal"
+                            @click="showAgentForm = !showAgentForm"
+                        >
+                            {{ $t("addAgent") }}
+                        </button>
 
                         <!-- Add Agent Form -->
                         <form v-if="showAgentForm" @submit.prevent="addAgent">
                             <div class="mb-3">
-                                <label for="url" class="form-label">{{ $t("dockgeURL") }}</label>
-                                <input id="url" v-model="agent.url" type="url" class="form-control" required placeholder="http://">
+                                <label for="url" class="form-label">{{
+                                    $t("dockruURL")
+                                }}</label>
+                                <input
+                                    id="url"
+                                    v-model="agent.url"
+                                    type="url"
+                                    class="form-control"
+                                    required
+                                    placeholder="http://"
+                                />
                             </div>
 
                             <div class="mb-3">
-                                <label for="username" class="form-label">{{ $t("Username") }}</label>
-                                <input id="username" v-model="agent.username" type="text" class="form-control" required>
+                                <label for="username" class="form-label">{{
+                                    $t("Username")
+                                }}</label>
+                                <input
+                                    id="username"
+                                    v-model="agent.username"
+                                    type="text"
+                                    class="form-control"
+                                    required
+                                />
                             </div>
 
                             <div class="mb-3">
-                                <label for="password" class="form-label">{{ $t("Password") }}</label>
-                                <input id="password" v-model="agent.password" type="password" class="form-control" required autocomplete="new-password">
+                                <label for="password" class="form-label">{{
+                                    $t("Password")
+                                }}</label>
+                                <input
+                                    id="password"
+                                    v-model="agent.password"
+                                    type="password"
+                                    class="form-control"
+                                    required
+                                    autocomplete="new-password"
+                                />
                             </div>
 
-                            <button type="submit" class="btn btn-primary" :disabled="connectingAgent">
-                                <template v-if="connectingAgent">{{ $t("connecting") }}</template>
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                                :disabled="connectingAgent"
+                            >
+                                <template v-if="connectingAgent">{{
+                                    $t("connecting")
+                                }}</template>
                                 <template v-else>{{ $t("connect") }}</template>
                             </button>
                         </form>
@@ -98,14 +194,12 @@
 import { statusNameShort } from "../../../common/util-common";
 
 export default {
-    components: {
-
-    },
+    components: {},
     props: {
         calculatedHeight: {
             type: Number,
-            default: 0
-        }
+            default: 0,
+        },
     },
     data() {
         return {
@@ -126,7 +220,7 @@ export default {
                 url: "http://",
                 username: "",
                 password: "",
-            }
+            },
         };
     },
 
@@ -166,7 +260,6 @@ export default {
     },
 
     methods: {
-
         addAgent() {
             this.connectingAgent = true;
             this.$root.getSocket().emit("addAgent", this.agent, (res) => {
@@ -218,14 +311,16 @@ export default {
 
             // composerize is working in dev, but after "vite build", it is not working
             // So pass to backend to do the conversion
-            this.$root.getSocket().emit("composerize", this.dockerRunCommand, (res) => {
-                if (res.ok) {
-                    this.$root.composeTemplate = res.composeTemplate;
-                    this.$router.push("/compose");
-                } else {
-                    this.$root.toastRes(res);
-                }
-            });
+            this.$root
+                .getSocket()
+                .emit("composerize", this.dockerRunCommand, (res) => {
+                    if (res.ok) {
+                        this.$root.composeTemplate = res.composeTemplate;
+                        this.$router.push("/compose");
+                    } else {
+                        this.$root.toastRes(res);
+                    }
+                });
         },
 
         /**
@@ -248,12 +343,14 @@ export default {
          * @returns {void}
          */
         getImportantHeartbeatListLength() {
-            this.$root.getSocket().emit("monitorImportantHeartbeatListCount", null, (res) => {
-                if (res.ok) {
-                    this.importantHeartBeatListLength = res.count;
-                    this.getImportantHeartbeatListPaged();
-                }
-            });
+            this.$root
+                .getSocket()
+                .emit("monitorImportantHeartbeatListCount", null, (res) => {
+                    if (res.ok) {
+                        this.importantHeartBeatListLength = res.count;
+                        this.getImportantHeartbeatListPaged();
+                    }
+                });
         },
 
         /**
@@ -262,11 +359,19 @@ export default {
          */
         getImportantHeartbeatListPaged() {
             const offset = (this.page - 1) * this.perPage;
-            this.$root.getSocket().emit("monitorImportantHeartbeatListPaged", null, offset, this.perPage, (res) => {
-                if (res.ok) {
-                    this.displayedRecords = res.data;
-                }
-            });
+            this.$root
+                .getSocket()
+                .emit(
+                    "monitorImportantHeartbeatListPaged",
+                    null,
+                    offset,
+                    this.perPage,
+                    (res) => {
+                        if (res.ok) {
+                            this.displayedRecords = res.data;
+                        }
+                    },
+                );
         },
 
         /**
@@ -280,11 +385,13 @@ export default {
             const additionalPerPage = Math.floor(availableHeight / 58);
 
             if (additionalPerPage > 0) {
-                this.perPage = Math.max(this.initialPerPage, this.perPage + additionalPerPage);
+                this.perPage = Math.max(
+                    this.initialPerPage,
+                    this.perPage + additionalPerPage,
+                );
             } else {
                 this.perPage = this.initialPerPage;
             }
-
         },
     },
 };
@@ -327,12 +434,11 @@ table {
 
 .docker-run {
     border: none;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 15px;
 }
 
 .first-row .shadow-box {
-
 }
 
 .remove-agent {
@@ -345,5 +451,4 @@ table {
         text-decoration: none;
     }
 }
-
 </style>

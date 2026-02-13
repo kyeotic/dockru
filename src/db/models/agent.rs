@@ -4,7 +4,7 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use url::Url;
 
-/// Agent model representing a remote Dockge instance
+/// Agent model representing a remote Dockru instance
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Agent {
     pub id: i64,

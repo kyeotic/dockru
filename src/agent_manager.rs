@@ -38,9 +38,9 @@ struct AgentClient {
     endpoint: String,
 }
 
-/// Dockge Agent Manager
+/// Dockru Agent Manager
 /// One AgentManager per Socket connection
-/// Manages Socket.io client connections to remote Dockge instances
+/// Manages Socket.io client connections to remote Dockru instances
 pub struct AgentManager {
     socket_id: String,
     socket: SocketRef,
@@ -64,15 +64,15 @@ impl AgentManager {
         }
     }
 
-    /// Test connection to a remote Dockge instance
+    /// Test connection to a remote Dockru instance
     /// Returns Ok(()) if connection and login succeed
     pub async fn test(&self, url: &str, username: &str, password: &str) -> Result<()> {
         let parsed_url = url::Url::parse(url)
-            .map_err(|e| anyhow!("Invalid Dockge URL: {}", e))?;
+            .map_err(|e| anyhow!("Invalid Dockru URL: {}", e))?;
 
         let endpoint = parsed_url
             .host_str()
-            .ok_or_else(|| anyhow!("Invalid Dockge URL: no host"))?;
+            .ok_or_else(|| anyhow!("Invalid Dockru URL: no host"))?;
 
         let endpoint_with_port = if let Some(port) = parsed_url.port() {
             format!("{}:{}", endpoint, port)
@@ -84,7 +84,7 @@ impl AgentManager {
         {
             let clients = self.agent_clients.read().await;
             if clients.contains_key(&endpoint_with_port) {
-                return Err(anyhow!("The Dockge URL already exists"));
+                return Err(anyhow!("The Dockru URL already exists"));
             }
         }
 
@@ -200,7 +200,7 @@ impl AgentManager {
                 let tx = tx_for_error.clone();
                 async move {
                     if let Some(lock) = tx.lock().await.take() {
-                        lock.send(Err(anyhow!("Unable to connect to the Dockge instance"))).ok();
+                        lock.send(Err(anyhow!("Unable to connect to the Dockru instance"))).ok();
                     }
                 }
                 .boxed()
@@ -219,7 +219,7 @@ impl AgentManager {
         result
     }
 
-    /// Add a remote Dockge agent to the database
+    /// Add a remote Dockru agent to the database
     pub async fn add(&self, url: &str, username: &str, password: &str) -> Result<Agent> {
         use crate::db::models::agent::NewAgent;
         let new_agent = NewAgent {
@@ -234,7 +234,7 @@ impl AgentManager {
         Ok(agent)
     }
 
-    /// Remove a remote Dockge agent
+    /// Remove a remote Dockru agent
     pub async fn remove(&self, url: &str) -> Result<()> {
         let agent = Agent::find_by_url(&self.db, url)
             .await?
@@ -256,7 +256,7 @@ impl AgentManager {
         Ok(())
     }
 
-    /// Connect to a remote Dockge instance
+    /// Connect to a remote Dockru instance
     pub async fn connect(&self, url: &str, username: &str, password: &str) {
         let parsed_url = match url::Url::parse(url) {
             Ok(u) => u,

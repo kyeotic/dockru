@@ -9,39 +9,77 @@
                 </span>
             </h1>
 
-            <div v-if="stack.isManagedByDockge" class="mb-3">
+            <div v-if="stack.isManagedByDockru" class="mb-3">
                 <div class="btn-group me-2" role="group">
-                    <button v-if="isEditMode" class="btn btn-primary" :disabled="processing" @click="deployStack">
+                    <button
+                        v-if="isEditMode"
+                        class="btn btn-primary"
+                        :disabled="processing"
+                        @click="deployStack"
+                    >
                         <font-awesome-icon icon="rocket" class="me-1" />
                         {{ $t("deployStack") }}
                     </button>
 
-                    <button v-if="isEditMode" class="btn btn-normal" :disabled="processing" @click="saveStack">
+                    <button
+                        v-if="isEditMode"
+                        class="btn btn-normal"
+                        :disabled="processing"
+                        @click="saveStack"
+                    >
                         <font-awesome-icon icon="save" class="me-1" />
                         {{ $t("saveStackDraft") }}
                     </button>
 
-                    <button v-if="!isEditMode" class="btn btn-secondary" :disabled="processing" @click="enableEditMode">
+                    <button
+                        v-if="!isEditMode"
+                        class="btn btn-secondary"
+                        :disabled="processing"
+                        @click="enableEditMode"
+                    >
                         <font-awesome-icon icon="pen" class="me-1" />
                         {{ $t("editStack") }}
                     </button>
 
-                    <button v-if="!isEditMode && !active" class="btn btn-primary" :disabled="processing" @click="startStack">
+                    <button
+                        v-if="!isEditMode && !active"
+                        class="btn btn-primary"
+                        :disabled="processing"
+                        @click="startStack"
+                    >
                         <font-awesome-icon icon="play" class="me-1" />
                         {{ $t("startStack") }}
                     </button>
 
-                    <button v-if="!isEditMode && active" class="btn btn-normal " :disabled="processing" @click="restartStack">
+                    <button
+                        v-if="!isEditMode && active"
+                        class="btn btn-normal"
+                        :disabled="processing"
+                        @click="restartStack"
+                    >
                         <font-awesome-icon icon="rotate" class="me-1" />
                         {{ $t("restartStack") }}
                     </button>
 
-                    <button v-if="!isEditMode" class="btn btn-normal" :disabled="processing" @click="updateStack">
-                        <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
+                    <button
+                        v-if="!isEditMode"
+                        class="btn btn-normal"
+                        :disabled="processing"
+                        @click="updateStack"
+                    >
+                        <font-awesome-icon
+                            icon="cloud-arrow-down"
+                            class="me-1"
+                        />
                         {{ $t("updateStack") }}
                     </button>
 
-                    <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" @click="stopStack">
+                    <button
+                        v-if="!isEditMode && active"
+                        class="btn btn-normal"
+                        :disabled="processing"
+                        @click="stopStack"
+                    >
                         <font-awesome-icon icon="stop" class="me-1" />
                         {{ $t("stopStack") }}
                     </button>
@@ -54,8 +92,20 @@
                     </BDropdown>
                 </div>
 
-                <button v-if="isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" @click="discardStack">{{ $t("discardStack") }}</button>
-                <button v-if="!isEditMode" class="btn btn-danger" :disabled="processing" @click="showDeleteDialog = !showDeleteDialog">
+                <button
+                    v-if="isEditMode && !isAdd"
+                    class="btn btn-normal"
+                    :disabled="processing"
+                    @click="discardStack"
+                >
+                    {{ $t("discardStack") }}
+                </button>
+                <button
+                    v-if="!isEditMode"
+                    class="btn btn-danger"
+                    :disabled="processing"
+                    @click="showDeleteDialog = !showDeleteDialog"
+                >
                     <font-awesome-icon icon="trash" class="me-1" />
                     {{ $t("deleteStack") }}
                 </button>
@@ -63,8 +113,15 @@
 
             <!-- URLs -->
             <div v-if="urls.length > 0" class="mb-3">
-                <a v-for="(url, index) in urls" :key="index" target="_blank" :href="url.url">
-                    <span class="badge bg-secondary me-2">{{ url.display }}</span>
+                <a
+                    v-for="(url, index) in urls"
+                    :key="index"
+                    target="_blank"
+                    :href="url.url"
+                >
+                    <span class="badge bg-secondary me-2">{{
+                        url.display
+                    }}</span>
                 </a>
             </div>
 
@@ -77,11 +134,14 @@
                     :name="terminalName"
                     :endpoint="endpoint"
                     :rows="progressTerminalRows"
-                    @has-data="showProgressTerminal = true; submitted = true;"
+                    @has-data="
+                        showProgressTerminal = true;
+                        submitted = true;
+                    "
                 ></Terminal>
             </transition>
 
-            <div v-if="stack.isManagedByDockge" class="row">
+            <div v-if="stack.isManagedByDockru" class="row">
                 <div class="col-lg-6">
                     <!-- General -->
                     <div v-if="isAdd">
@@ -89,17 +149,48 @@
                         <div class="shadow-box big-padding mb-3">
                             <!-- Stack Name -->
                             <div>
-                                <label for="name" class="form-label">{{ $t("stackName") }}</label>
-                                <input id="name" v-model="stack.name" type="text" class="form-control" required @blur="stackNameToLowercase">
-                                <div class="form-text">{{ $t("Lowercase only") }}</div>
+                                <label for="name" class="form-label">{{
+                                    $t("stackName")
+                                }}</label>
+                                <input
+                                    id="name"
+                                    v-model="stack.name"
+                                    type="text"
+                                    class="form-control"
+                                    required
+                                    @blur="stackNameToLowercase"
+                                />
+                                <div class="form-text">
+                                    {{ $t("Lowercase only") }}
+                                </div>
                             </div>
 
                             <!-- Endpoint -->
                             <div class="mt-3">
-                                <label for="name" class="form-label">{{ $t("dockgeAgent") }}</label>
-                                <select v-model="stack.endpoint" class="form-select">
-                                    <option v-for="(agent, endpoint) in $root.agentList" :key="endpoint" :value="endpoint" :disabled="$root.agentStatusList[endpoint] != 'online'">
-                                        ({{ $root.agentStatusList[endpoint] }}) {{ (endpoint) ? endpoint : $t("currentEndpoint") }}
+                                <label for="name" class="form-label">{{
+                                    $t("dockruAgent")
+                                }}</label>
+                                <select
+                                    v-model="stack.endpoint"
+                                    class="form-select"
+                                >
+                                    <option
+                                        v-for="(
+                                            agent, endpoint
+                                        ) in $root.agentList"
+                                        :key="endpoint"
+                                        :value="endpoint"
+                                        :disabled="
+                                            $root.agentStatusList[endpoint] !=
+                                            'online'
+                                        "
+                                    >
+                                        ({{ $root.agentStatusList[endpoint] }})
+                                        {{
+                                            endpoint
+                                                ? endpoint
+                                                : $t("currentEndpoint")
+                                        }}
                                     </option>
                                 </select>
                             </div>
@@ -127,13 +218,26 @@
                             :key="name"
                             :name="name"
                             :is-edit-mode="isEditMode"
-                            :first="name === Object.keys(jsonConfig.services)[0]"
+                            :first="
+                                name === Object.keys(jsonConfig.services)[0]
+                            "
                             :status="serviceStatusList[name]?.state"
                             :ports="serviceStatusList[name]?.ports"
                         />
                     </div>
 
-                    <button v-if="false && isEditMode && jsonConfig.services && Object.keys(jsonConfig.services).length > 0" class="btn btn-normal mb-3" @click="addContainer">{{ $t("addContainer") }}</button>
+                    <button
+                        v-if="
+                            false &&
+                            isEditMode &&
+                            jsonConfig.services &&
+                            Object.keys(jsonConfig.services).length > 0
+                        "
+                        class="btn btn-normal mb-3"
+                        @click="addContainer"
+                    >
+                        {{ $t("addContainer") }}
+                    </button>
 
                     <!-- General -->
                     <div v-if="isEditMode">
@@ -144,7 +248,12 @@
                                 <label class="form-label">
                                     {{ $tc("url", 2) }}
                                 </label>
-                                <ArrayInput name="urls" :display-name="$t('url')" placeholder="https://" object-type="x-dockge" />
+                                <ArrayInput
+                                    name="urls"
+                                    :display-name="$t('url')"
+                                    placeholder="https://"
+                                    object-type="x-dockru"
+                                />
                             </div>
                         </div>
                     </div>
@@ -159,7 +268,7 @@
                             :endpoint="endpoint"
                             :rows="combinedTerminalRows"
                             :cols="combinedTerminalCols"
-                            style="height: 315px;"
+                            style="height: 315px"
                         ></Terminal>
                     </div>
                 </div>
@@ -167,7 +276,10 @@
                     <h4 class="mb-3">{{ stack.composeFileName }}</h4>
 
                     <!-- YAML editor -->
-                    <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                    <div
+                        class="shadow-box mb-3 editor-box"
+                        :class="{ 'edit-mode': isEditMode }"
+                    >
                         <code-mirror
                             ref="editor"
                             v-model="stack.composeYAML"
@@ -188,7 +300,10 @@
                     <!-- ENV editor -->
                     <div v-if="isEditMode">
                         <h4 class="mb-3">.env</h4>
-                        <div class="shadow-box mb-3 editor-box" :class="{'edit-mode' : isEditMode}">
+                        <div
+                            class="shadow-box mb-3 editor-box"
+                            :class="{ 'edit-mode': isEditMode }"
+                        >
                             <code-mirror
                                 ref="editor"
                                 v-model="stack.composeENV"
@@ -208,8 +323,7 @@
                         <!-- Volumes -->
                         <div v-if="false">
                             <h4 class="mb-3">{{ $tc("volume", 2) }}</h4>
-                            <div class="shadow-box big-padding mb-3">
-                            </div>
+                            <div class="shadow-box big-padding mb-3"></div>
                         </div>
 
                         <!-- Networks -->
@@ -230,12 +344,18 @@
                 </div>
             </div>
 
-            <div v-if="!stack.isManagedByDockge && !processing">
-                {{ $t("stackNotManagedByDockgeMsg") }}
+            <div v-if="!stack.isManagedByDockru && !processing">
+                {{ $t("stackNotManagedByDockruMsg") }}
             </div>
 
             <!-- Delete Dialog -->
-            <BModal v-model="showDeleteDialog" :cancelTitle="$t('cancel')" :okTitle="$t('deleteStack')" okVariant="danger" @ok="deleteDialog">
+            <BModal
+                v-model="showDeleteDialog"
+                :cancelTitle="$t('cancel')"
+                :okTitle="$t('deleteStack')"
+                okVariant="danger"
+                @ok="deleteDialog"
+            >
                 {{ $t("deleteStackMsg") }}
             </BModal>
         </div>
@@ -254,11 +374,12 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import {
     COMBINED_TERMINAL_COLS,
     COMBINED_TERMINAL_ROWS,
-    copyYAMLComments, envsubstYAML,
+    copyYAMLComments,
+    envsubstYAML,
     getCombinedTerminalName,
     getComposeTerminalName,
     PROGRESS_TERMINAL_ROWS,
-    RUNNING
+    RUNNING,
 } from "../../../common/util-common";
 import { BModal } from "bootstrap-vue-next";
 import NetworkInput from "../components/NetworkInput.vue";
@@ -304,21 +425,19 @@ export default {
             editorTheme,
             yaml(),
             lineNumbers(),
-            EditorView.focusChangeEffect.of(focusEffectHandler)
+            EditorView.focusChangeEffect.of(focusEffectHandler),
         ];
 
         const extensionsEnv = [
             editorTheme,
             python(),
             lineNumbers(),
-            EditorView.focusChangeEffect.of(focusEffectHandler)
+            EditorView.focusChangeEffect.of(focusEffectHandler),
         ];
 
-        return { extensions,
-            extensionsEnv,
-            editorFocus };
+        return { extensions, extensionsEnv, editorFocus };
     },
-    yamlDoc: null,  // For keeping the yaml comments
+    yamlDoc: null, // For keeping the yaml comments
     data() {
         return {
             jsonConfig: {},
@@ -329,9 +448,7 @@ export default {
             progressTerminalRows: PROGRESS_TERMINAL_ROWS,
             combinedTerminalRows: COMBINED_TERMINAL_ROWS,
             combinedTerminalCols: COMBINED_TERMINAL_COLS,
-            stack: {
-
-            },
+            stack: {},
             serviceStatusList: {},
             isEditMode: false,
             submitted: false,
@@ -346,12 +463,16 @@ export default {
         },
 
         urls() {
-            if (!this.envsubstJSONConfig["x-dockge"] || !this.envsubstJSONConfig["x-dockge"].urls || !Array.isArray(this.envsubstJSONConfig["x-dockge"].urls)) {
+            if (
+                !this.envsubstJSONConfig["x-dockru"] ||
+                !this.envsubstJSONConfig["x-dockru"].urls ||
+                !Array.isArray(this.envsubstJSONConfig["x-dockru"].urls)
+            ) {
                 return [];
             }
 
             let urls = [];
-            for (const url of this.envsubstJSONConfig["x-dockge"].urls) {
+            for (const url of this.envsubstJSONConfig["x-dockru"].urls) {
                 let display;
                 try {
                     let obj = new URL(url);
@@ -381,7 +502,9 @@ export default {
          * @return {*}
          */
         globalStack() {
-            return this.$root.completeStackList[this.stack.name + "_" + this.endpoint];
+            return this.$root.completeStackList[
+                this.stack.name + "_" + this.endpoint
+            ];
         },
 
         status() {
@@ -462,9 +585,7 @@ export default {
             deep: true,
         },
 
-        $route(to, from) {
-
-        }
+        $route(to, from) {},
     },
     mounted() {
         if (this.isAdd) {
@@ -492,12 +613,11 @@ export default {
                 name: "",
                 composeYAML,
                 composeENV,
-                isManagedByDockge: true,
+                isManagedByDockru: true,
                 endpoint: "",
             };
 
             this.yamlCodeChange();
-
         } else {
             this.stack.name = this.$route.params.stackName;
             this.loadStack();
@@ -505,9 +625,7 @@ export default {
 
         this.requestServiceStatus();
     },
-    unmounted() {
-
-    },
+    unmounted() {},
     methods: {
         startServiceStatusTimeout() {
             clearTimeout(serviceStatusTimeout);
@@ -522,14 +640,19 @@ export default {
                 return;
             }
 
-            this.$root.emitAgent(this.endpoint, "serviceStatusList", this.stack.name, (res) => {
-                if (res.ok) {
-                    this.serviceStatusList = res.serviceStatusList;
-                }
-                if (!this.stopServiceStatusTimeout) {
-                    this.startServiceStatusTimeout();
-                }
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "serviceStatusList",
+                this.stack.name,
+                (res) => {
+                    if (res.ok) {
+                        this.serviceStatusList = res.serviceStatusList;
+                    }
+                    if (!this.stopServiceStatusTimeout) {
+                        this.startServiceStatusTimeout();
+                    }
+                },
+            );
         },
 
         exitConfirm(next) {
@@ -552,8 +675,17 @@ export default {
             clearTimeout(serviceStatusTimeout);
 
             // Leave Combined Terminal
-            console.debug("leaveCombinedTerminal", this.endpoint, this.stack.name);
-            this.$root.emitAgent(this.endpoint, "leaveCombinedTerminal", this.stack.name, () => {});
+            console.debug(
+                "leaveCombinedTerminal",
+                this.endpoint,
+                this.stack.name,
+            );
+            this.$root.emitAgent(
+                this.endpoint,
+                "leaveCombinedTerminal",
+                this.stack.name,
+                () => {},
+            );
         },
 
         bindTerminal() {
@@ -562,16 +694,21 @@ export default {
 
         loadStack() {
             this.processing = true;
-            this.$root.emitAgent(this.endpoint, "getStack", this.stack.name, (res) => {
-                if (res.ok) {
-                    this.stack = res.stack;
-                    this.yamlCodeChange();
-                    this.processing = false;
-                    this.bindTerminal();
-                } else {
-                    this.$root.toastRes(res);
-                }
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "getStack",
+                this.stack.name,
+                (res) => {
+                    if (res.ok) {
+                        this.stack = res.stack;
+                        this.yamlCodeChange();
+                        this.processing = false;
+                        this.bindTerminal();
+                    } else {
+                        this.$root.toastRes(res);
+                    }
+                },
+            );
         },
 
         deployStack() {
@@ -606,83 +743,129 @@ export default {
 
             this.bindTerminal();
 
-            this.$root.emitAgent(this.stack.endpoint, "deployStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.isAdd, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
+            this.$root.emitAgent(
+                this.stack.endpoint,
+                "deployStack",
+                this.stack.name,
+                this.stack.composeYAML,
+                this.stack.composeENV,
+                this.isAdd,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
 
-                if (res.ok) {
-                    this.isEditMode = false;
-                    this.$router.push(this.url);
-                }
-            });
+                    if (res.ok) {
+                        this.isEditMode = false;
+                        this.$router.push(this.url);
+                    }
+                },
+            );
         },
 
         saveStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.stack.endpoint, "saveStack", this.stack.name, this.stack.composeYAML, this.stack.composeENV, this.isAdd, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
+            this.$root.emitAgent(
+                this.stack.endpoint,
+                "saveStack",
+                this.stack.name,
+                this.stack.composeYAML,
+                this.stack.composeENV,
+                this.isAdd,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
 
-                if (res.ok) {
-                    this.isEditMode = false;
-                    this.$router.push(this.url);
-                }
-            });
+                    if (res.ok) {
+                        this.isEditMode = false;
+                        this.$router.push(this.url);
+                    }
+                },
+            );
         },
 
         startStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.endpoint, "startStack", this.stack.name, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "startStack",
+                this.stack.name,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
+                },
+            );
         },
 
         stopStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.endpoint, "stopStack", this.stack.name, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "stopStack",
+                this.stack.name,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
+                },
+            );
         },
 
         downStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.endpoint, "downStack", this.stack.name, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "downStack",
+                this.stack.name,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
+                },
+            );
         },
 
         restartStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.endpoint, "restartStack", this.stack.name, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "restartStack",
+                this.stack.name,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
+                },
+            );
         },
 
         updateStack() {
             this.processing = true;
 
-            this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, (res) => {
-                this.processing = false;
-                this.$root.toastRes(res);
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "updateStack",
+                this.stack.name,
+                (res) => {
+                    this.processing = false;
+                    this.$root.toastRes(res);
+                },
+            );
         },
 
         deleteDialog() {
-            this.$root.emitAgent(this.endpoint, "deleteStack", this.stack.name, (res) => {
-                this.$root.toastRes(res);
-                if (res.ok) {
-                    this.$router.push("/");
-                }
-            });
+            this.$root.emitAgent(
+                this.endpoint,
+                "deleteStack",
+                this.stack.name,
+                (res) => {
+                    this.$root.toastRes(res);
+                    if (res.ok) {
+                        this.$router.push("/");
+                    }
+                },
+            );
         },
 
         discardStack() {
@@ -704,7 +887,10 @@ export default {
                 config.services = {};
             }
 
-            if (Array.isArray(config.services) || typeof config.services !== "object") {
+            if (
+                Array.isArray(config.services) ||
+                typeof config.services !== "object"
+            ) {
                 throw new Error("Services must be an object");
             }
 
@@ -732,7 +918,6 @@ export default {
 
                 if (this.yamlError) {
                     this.yamlError = e.message;
-
                 } else {
                     yamlErrorTimeout = setTimeout(() => {
                         this.yamlError = e.message;
@@ -745,9 +930,7 @@ export default {
             this.isEditMode = true;
         },
 
-        checkYAML() {
-
-        },
+        checkYAML() {},
 
         addContainer() {
             this.checkYAML();
@@ -769,15 +952,14 @@ export default {
             let element = this.$refs.containerList.lastElementChild;
             element.scrollIntoView({
                 block: "start",
-                behavior: "smooth"
+                behavior: "smooth",
             });
         },
 
         stackNameToLowercase() {
             this.stack.name = this.stack?.name?.toLowerCase();
         },
-
-    }
+    },
 };
 </script>
 
@@ -789,7 +971,7 @@ export default {
 }
 
 .editor-box {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 14px;
 }
 

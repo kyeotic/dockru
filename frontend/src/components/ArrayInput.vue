@@ -2,13 +2,28 @@
     <div>
         <div v-if="valid">
             <ul v-if="isArrayInited" class="list-group">
-                <li v-for="(value, index) in array" :key="index" class="list-group-item">
-                    <input v-model="array[index]" type="text" class="no-bg domain-input" :placeholder="placeholder" />
-                    <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" @click="remove(index)" />
+                <li
+                    v-for="(value, index) in array"
+                    :key="index"
+                    class="list-group-item"
+                >
+                    <input
+                        v-model="array[index]"
+                        type="text"
+                        class="no-bg domain-input"
+                        :placeholder="placeholder"
+                    />
+                    <font-awesome-icon
+                        icon="times"
+                        class="action remove ms-2 me-3 text-danger"
+                        @click="remove(index)"
+                    />
                 </li>
             </ul>
 
-            <button class="btn btn-normal btn-sm mt-3" @click="addField">{{ $t("addListItem", [ displayName ]) }}</button>
+            <button class="btn btn-normal btn-sm mt-3" @click="addField">
+                {{ $t("addListItem", [displayName]) }}
+            </button>
         </div>
         <div v-else>
             {{ $t("LongSyntaxNotSupported") }}
@@ -34,12 +49,10 @@ export default {
         objectType: {
             type: String,
             default: "service",
-        }
+        },
     },
     data() {
-        return {
-
-        };
+        return {};
     },
     computed: {
         array() {
@@ -66,14 +79,13 @@ export default {
             if (this.objectType === "service") {
                 // Used in Container.vue
                 return this.$parent.$parent.service;
-            } else if (this.objectType === "x-dockge") {
-
-                if (!this.$parent.$parent.jsonConfig["x-dockge"]) {
+            } else if (this.objectType === "x-dockru") {
+                if (!this.$parent.$parent.jsonConfig["x-dockru"]) {
                     return {};
                 }
 
                 // Used in Compose.vue
-                return this.$parent.$parent.jsonConfig["x-dockge"];
+                return this.$parent.$parent.jsonConfig["x-dockru"];
             } else {
                 return {};
             }
@@ -92,19 +104,15 @@ export default {
                 }
             }
             return true;
-        }
-
+        },
     },
-    created() {
-
-    },
+    created() {},
     methods: {
         addField() {
-
             // Create the object if not exists.
-            if (this.objectType === "x-dockge") {
-                if (!this.$parent.$parent.jsonConfig["x-dockge"]) {
-                    this.$parent.$parent.jsonConfig["x-dockge"] = {};
+            if (this.objectType === "x-dockru") {
+                if (!this.$parent.$parent.jsonConfig["x-dockru"]) {
+                    this.$parent.$parent.jsonConfig["x-dockru"] = {};
                 }
             }
 
@@ -118,7 +126,7 @@ export default {
         remove(index) {
             this.array.splice(index, 1);
         },
-    }
+    },
 };
 </script>
 

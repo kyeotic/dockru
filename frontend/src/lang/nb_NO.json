@@ -23,7 +23,7 @@
     "saveStackDraft": "Lagre",
     "notAvailableShort": "N/A",
     "deleteStackMsg": "Er du sikker på at du vil slette denne stacken?",
-    "stackNotManagedByDockgeMsg": "Denne stacken er ikke styrt av Dockge.",
+    "stackNotManagedByDockruMsg": "Denne stacken er ikke styrt av Dockru.",
     "primaryHostname": "Primært vertsnavn",
     "general": "Generell",
     "container": "Container | Containers",

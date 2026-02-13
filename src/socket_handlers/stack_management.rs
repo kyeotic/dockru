@@ -95,7 +95,9 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_get_stack(&socket, &ctx, &stack_name).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -104,15 +106,18 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 
     // requestStackList
     let ctx_clone = ctx.clone();
-    socket.on("requestStackList", move |socket: SocketRef, ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            if check_login(&socket).is_ok() {
-                broadcast_stack_list(&ctx).await;
-                callback_ok(Some(ack), "Updated", true);
-            }
-        });
-    });
+    socket.on(
+        "requestStackList",
+        move |socket: SocketRef, ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                if check_login(&socket).is_ok() {
+                    broadcast_stack_list(&ctx).await;
+                    callback_ok(Some(ack), "Updated", true);
+                }
+            });
+        },
+    );
 
     // startStack
     let ctx_clone = ctx.clone();
@@ -212,7 +217,9 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_service_status_list(&socket, &ctx, &stack_name).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -221,15 +228,20 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 
     // getDockerNetworkList
     let ctx_clone = ctx.clone();
-    socket.on("getDockerNetworkList", move |socket: SocketRef, ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            match handle_get_docker_network_list(&socket, &ctx).await {
-                Ok(response) => { ack.send(&response).ok(); },
-                Err(e) => callback_error(Some(ack), e),
-            };
-        });
-    });
+    socket.on(
+        "getDockerNetworkList",
+        move |socket: SocketRef, ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match handle_get_docker_network_list(&socket, &ctx).await {
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                };
+            });
+        },
+    );
 }
 
 async fn handle_deploy_stack(
@@ -306,8 +318,8 @@ async fn handle_get_stack(
     let endpoint = get_endpoint(socket);
     let mut stack = Stack::get_stack(ctx.clone().into(), stack_name, endpoint.clone()).await?;
 
-    // Join combined terminal if managed by dockge
-    if stack.is_managed_by_dockge().await {
+    // Join combined terminal if managed by dockru
+    if stack.is_managed_by_dockru().await {
         stack.join_combined_terminal(socket.clone()).await.ok();
     }
 
@@ -443,7 +455,7 @@ async fn broadcast_stack_list(ctx: &ServerContext) {
     // TODO Phase 7: Implement proper broadcasting to all authenticated sockets
     // For now, just log
     debug!("Broadcasting stack list (stubbed)");
-    
+
     // In Phase 8, we'll iterate through all sockets, check authentication,
     // and emit stackList to each with their specific endpoint
 }

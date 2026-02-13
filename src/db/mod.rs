@@ -21,7 +21,7 @@ impl Database {
     /// - Incremental auto-vacuum
     /// - Normal synchronous mode (balance safety and performance)
     pub async fn new(data_dir: impl AsRef<Path>) -> Result<Self> {
-        let db_path = data_dir.as_ref().join("dockge.db");
+        let db_path = data_dir.as_ref().join("dockru.db");
         info!("Connecting to database at: {}", db_path.display());
 
         // Build connection options
@@ -135,7 +135,7 @@ impl Database {
 
     /// Get the size of the database file in bytes (SQLite only)
     pub fn get_size(&self, data_dir: impl AsRef<Path>) -> Result<u64> {
-        let db_path = data_dir.as_ref().join("dockge.db");
+        let db_path = data_dir.as_ref().join("dockru.db");
         let metadata =
             std::fs::metadata(&db_path).context("Failed to read database file metadata")?;
         Ok(metadata.len())
@@ -163,7 +163,7 @@ mod tests {
         let db = Database::new(temp_dir.path()).await.unwrap();
 
         // Verify database was created
-        let db_path = temp_dir.path().join("dockge.db");
+        let db_path = temp_dir.path().join("dockru.db");
         assert!(db_path.exists());
 
         // Verify we can execute a query

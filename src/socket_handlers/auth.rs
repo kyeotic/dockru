@@ -124,7 +124,7 @@ async fn handle_setup(
     let user_count = User::count(&ctx.db).await?;
     if user_count > 0 {
         return Err(anyhow!(
-            "Dockge has been initialized. If you want to run setup again, please delete the database."
+            "Dockru has been initialized. If you want to run setup again, please delete the database."
         ));
     }
 
@@ -327,13 +327,15 @@ async fn after_login(socket: &SocketRef, ctx: &ServerContext, user: &User) -> Re
     let endpoint = extract_endpoint(socket).unwrap_or_default();
     set_endpoint(socket, endpoint.clone());
 
-    // Send server info
-    send_info(socket, ctx).await?;
+    // Send server info (Phase 10)
+    crate::broadcasts::send_info(socket, ctx, false).await?;
 
     // TODO Phase 7: Send stack list
 
     // Send agent list and connect to all agents (Phase 8)
-    if let Some(agent_manager) = crate::agent_manager::get_agent_manager(&socket.id.to_string()).await {
+    if let Some(agent_manager) =
+        crate::agent_manager::get_agent_manager(&socket.id.to_string()).await
+    {
         agent_manager.send_agent_list().await;
         agent_manager.connect_all(&endpoint).await;
     }
@@ -341,40 +343,15 @@ async fn after_login(socket: &SocketRef, ctx: &ServerContext, user: &User) -> Re
     Ok(())
 }
 
-/// Send server info to socket
-async fn send_info(socket: &SocketRef, ctx: &ServerContext) -> Result<()> {
-    let primary_hostname_value = Setting::get(
-        &ctx.db,
-        &crate::db::models::SettingsCache::default(),
-        "primaryHostname",
-    )
-    .await?;
-    let primary_hostname = primary_hostname_value.and_then(|v| v.as_str().map(|s| s.to_string()));
-
-    socket
-        .emit(
-            "info",
-            json!({
-                "version": env!("CARGO_PKG_VERSION"),
-                "latestVersion": null, // TODO: Implement version checking
-                "isContainer": std::env::var("DOCKGE_IS_CONTAINER").unwrap_or_default() == "1",
-                "primaryHostname": primary_hostname,
-            }),
-        )
-        .ok();
-
-    Ok(())
-}
-
 /// Get client IP from socket
 /// Always respects X-Forwarded-For and X-Real-IP headers (trust proxy)
 fn get_client_ip(socket: &SocketRef) -> std::net::IpAddr {
-    // Try to get from socket extensions/state  
+    // Try to get from socket extensions/state
     // socketioxide doesn't provide direct access to request headers
     // For now, return localhost as placeholder
     // TODO: Extract from X-Forwarded-For when socketioxide supports it
     // Or extract at connection time and store in socket state
-    
+
     std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1))
 }
 

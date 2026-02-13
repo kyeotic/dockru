@@ -3,7 +3,13 @@
         <div class="list-header">
             <div class="header-top">
                 <!-- TODO -->
-                <button v-if="false" class="btn btn-outline-normal ms-2" :class="{ 'active': selectMode }" type="button" @click="selectMode = !selectMode">
+                <button
+                    v-if="false"
+                    class="btn btn-outline-normal ms-2"
+                    :class="{ active: selectMode }"
+                    type="button"
+                    @click="selectMode = !selectMode"
+                >
                     {{ $t("Select") }}
                 </button>
 
@@ -12,11 +18,20 @@
                     <a v-if="searchText == ''" class="search-icon">
                         <font-awesome-icon icon="search" />
                     </a>
-                    <a v-if="searchText != ''" class="search-icon" style="cursor: pointer" @click="clearSearchText">
+                    <a
+                        v-if="searchText != ''"
+                        class="search-icon"
+                        style="cursor: pointer"
+                        @click="clearSearchText"
+                    >
                         <font-awesome-icon icon="times" />
                     </a>
                     <form>
-                        <input v-model="searchText" class="form-control search-input" autocomplete="off" />
+                        <input
+                            v-model="searchText"
+                            class="form-control search-input"
+                            autocomplete="off"
+                        />
                     </form>
                 </div>
             </div>
@@ -27,24 +42,43 @@
             </div>
 
             <!-- TODO: Selection Controls -->
-            <div v-if="selectMode && false" class="selection-controls px-2 pt-2">
+            <div
+                v-if="selectMode && false"
+                class="selection-controls px-2 pt-2"
+            >
                 <input
                     v-model="selectAll"
                     class="form-check-input select-input"
                     type="checkbox"
                 />
 
-                <button class="btn-outline-normal" @click="pauseDialog"><font-awesome-icon icon="pause" size="sm" /> {{ $t("Pause") }}</button>
-                <button class="btn-outline-normal" @click="resumeSelected"><font-awesome-icon icon="play" size="sm" /> {{ $t("Resume") }}</button>
+                <button class="btn-outline-normal" @click="pauseDialog">
+                    <font-awesome-icon icon="pause" size="sm" />
+                    {{ $t("Pause") }}
+                </button>
+                <button class="btn-outline-normal" @click="resumeSelected">
+                    <font-awesome-icon icon="play" size="sm" />
+                    {{ $t("Resume") }}
+                </button>
 
                 <span v-if="selectedStackCount > 0">
-                    {{ $t("selectedStackCount", [ selectedStackCount ]) }}
+                    {{ $t("selectedStackCount", [selectedStackCount]) }}
                 </span>
             </div>
         </div>
-        <div ref="stackList" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
-            <div v-if="Object.keys(sortedStackList).length === 0" class="text-center mt-3">
-                <router-link to="/compose">{{ $t("addFirstStackMsg") }}</router-link>
+        <div
+            ref="stackList"
+            class="stack-list"
+            :class="{ scrollbar: scrollbar }"
+            :style="stackListStyle"
+        >
+            <div
+                v-if="Object.keys(sortedStackList).length === 0"
+                class="text-center mt-3"
+            >
+                <router-link to="/compose">{{
+                    $t("addFirstStackMsg")
+                }}</router-link>
             </div>
 
             <StackListItem
@@ -59,7 +93,12 @@
         </div>
     </div>
 
-    <Confirm ref="confirmPause" :yes-text="$t('Yes')" :no-text="$t('No')" @yes="pauseSelected">
+    <Confirm
+        ref="confirmPause"
+        :yes-text="$t('Yes')"
+        :no-text="$t('No')"
+        @yes="pauseSelected"
+    >
         {{ $t("pauseStackMsg") }}
     </Confirm>
 </template>
@@ -67,7 +106,13 @@
 <script>
 import Confirm from "../components/Confirm.vue";
 import StackListItem from "../components/StackListItem.vue";
-import { CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN } from "../../../common/util-common";
+import {
+    CREATED_FILE,
+    CREATED_STACK,
+    EXITED,
+    RUNNING,
+    UNKNOWN,
+} from "../../../common/util-common";
 
 export default {
     components: {
@@ -92,7 +137,7 @@ export default {
                 status: null,
                 active: null,
                 tags: null,
-            }
+            },
         };
     },
     computed: {
@@ -112,7 +157,6 @@ export default {
                     height: "calc(100vh - 160px)",
                 };
             }
-
         },
 
         /**
@@ -122,41 +166,58 @@ export default {
         sortedStackList() {
             let result = Object.values(this.$root.completeStackList);
 
-            result = result.filter(stack => {
+            result = result.filter((stack) => {
                 // filter by search text
                 // finds stack name, tag name or tag value
                 let searchTextMatch = true;
                 if (this.searchText !== "") {
                     const loweredSearchText = this.searchText.toLowerCase();
                     searchTextMatch =
-                        stack.name.toLowerCase().includes(loweredSearchText)
-                        || stack.tags.find(tag => tag.name.toLowerCase().includes(loweredSearchText)
-                            || tag.value?.toLowerCase().includes(loweredSearchText));
+                        stack.name.toLowerCase().includes(loweredSearchText) ||
+                        stack.tags.find(
+                            (tag) =>
+                                tag.name
+                                    .toLowerCase()
+                                    .includes(loweredSearchText) ||
+                                tag.value
+                                    ?.toLowerCase()
+                                    .includes(loweredSearchText),
+                        );
                 }
 
                 // filter by active
                 let activeMatch = true;
-                if (this.filterState.active != null && this.filterState.active.length > 0) {
-                    activeMatch = this.filterState.active.includes(stack.active);
+                if (
+                    this.filterState.active != null &&
+                    this.filterState.active.length > 0
+                ) {
+                    activeMatch = this.filterState.active.includes(
+                        stack.active,
+                    );
                 }
 
                 // filter by tags
                 let tagsMatch = true;
-                if (this.filterState.tags != null && this.filterState.tags.length > 0) {
-                    tagsMatch = stack.tags.map(tag => tag.tag_id) // convert to array of tag IDs
-                        .filter(stackTagId => this.filterState.tags.includes(stackTagId)) // perform Array Intersaction between filter and stack's tags
-                        .length > 0;
+                if (
+                    this.filterState.tags != null &&
+                    this.filterState.tags.length > 0
+                ) {
+                    tagsMatch =
+                        stack.tags
+                            .map((tag) => tag.tag_id) // convert to array of tag IDs
+                            .filter((stackTagId) =>
+                                this.filterState.tags.includes(stackTagId),
+                            ).length > 0; // perform Array Intersaction between filter and stack's tags
                 }
 
                 return searchTextMatch && activeMatch && tagsMatch;
             });
 
             result.sort((m1, m2) => {
-
-                // sort by managed by dockge
-                if (m1.isManagedByDockge && !m2.isManagedByDockge) {
+                // sort by managed by dockru
+                if (m1.isManagedByDockru && !m2.isManagedByDockru) {
                     return -1;
-                } else if (!m1.isManagedByDockge && m2.isManagedByDockge) {
+                } else if (!m1.isManagedByDockru && m2.isManagedByDockru) {
                     return 1;
                 }
 
@@ -203,7 +264,7 @@ export default {
             }
 
             return {
-                "height": `calc(100% - ${listHeaderHeight}px)`
+                height: `calc(100% - ${listHeaderHeight}px)`,
             };
         },
 
@@ -216,8 +277,13 @@ export default {
          * @returns {boolean} True if any filter is active, false otherwise.
          */
         filtersActive() {
-            return this.filterState.status != null || this.filterState.active != null || this.filterState.tags != null || this.searchText !== "";
-        }
+            return (
+                this.filterState.status != null ||
+                this.filterState.active != null ||
+                this.filterState.tags != null ||
+                this.searchText !== ""
+            );
+        },
     },
     watch: {
         searchText() {
@@ -330,8 +396,10 @@ export default {
          */
         pauseSelected() {
             Object.keys(this.selectedStacks)
-                .filter(id => this.$root.stackList[id].active)
-                .forEach(id => this.$root.getSocket().emit("pauseStack", id, () => {}));
+                .filter((id) => this.$root.stackList[id].active)
+                .forEach((id) =>
+                    this.$root.getSocket().emit("pauseStack", id, () => {}),
+                );
 
             this.cancelSelectMode();
         },
@@ -341,8 +409,10 @@ export default {
          */
         resumeSelected() {
             Object.keys(this.selectedStacks)
-                .filter(id => !this.$root.stackList[id].active)
-                .forEach(id => this.$root.getSocket().emit("resumeStack", id, () => {}));
+                .filter((id) => !this.$root.stackList[id].active)
+                .forEach((id) =>
+                    this.$root.getSocket().emit("resumeStack", id, () => {}),
+                );
 
             this.cancelSelectMode();
         },
@@ -443,5 +513,4 @@ export default {
     align-items: center;
     gap: 10px;
 }
-
 </style>

@@ -51,8 +51,8 @@ pub struct StackSimpleJson {
     pub name: String,
     pub status: i32,
     pub tags: Vec<String>,
-    #[serde(rename = "isManagedByDockge")]
-    pub is_managed_by_dockge: bool,
+    #[serde(rename = "isManagedByDockru")]
+    pub is_managed_by_dockru: bool,
     #[serde(rename = "composeFileName")]
     pub compose_file_name: String,
     pub endpoint: String,
@@ -64,8 +64,8 @@ pub struct StackJson {
     pub name: String,
     pub status: i32,
     pub tags: Vec<String>,
-    #[serde(rename = "isManagedByDockge")]
-    pub is_managed_by_dockge: bool,
+    #[serde(rename = "isManagedByDockru")]
+    pub is_managed_by_dockru: bool,
     #[serde(rename = "composeFileName")]
     pub compose_file_name: String,
     pub endpoint: String,
@@ -158,8 +158,8 @@ impl Stack {
         }
     }
 
-    /// Check if this stack is managed by Dockge (has a directory in stacks_dir)
-    pub async fn is_managed_by_dockge(&self) -> bool {
+    /// Check if this stack is managed by Dockru (has a directory in stacks_dir)
+    pub async fn is_managed_by_dockru(&self) -> bool {
         let path = self.path();
         match fs::metadata(&path).await {
             Ok(metadata) => metadata.is_dir(),
@@ -293,7 +293,7 @@ impl Stack {
             name: self.name.clone(),
             status: self.status,
             tags: Vec::new(),
-            is_managed_by_dockge: self.is_managed_by_dockge().await,
+            is_managed_by_dockru: self.is_managed_by_dockru().await,
             compose_file_name: self.compose_file_name.clone(),
             endpoint: self.endpoint.clone(),
         }
@@ -320,7 +320,7 @@ impl Stack {
             name: self.name.clone(),
             status: self.status,
             tags: Vec::new(),
-            is_managed_by_dockge: self.is_managed_by_dockge().await,
+            is_managed_by_dockru: self.is_managed_by_dockru().await,
             compose_file_name: self.compose_file_name.clone(),
             endpoint: self.endpoint.clone(),
             compose_yaml,
@@ -804,8 +804,8 @@ impl Stack {
             match serde_json::from_str::<Vec<ComposeListItem>>(&stdout) {
                 Ok(compose_list) => {
                     for item in compose_list {
-                        // Skip the dockge stack if not managed
-                        if item.name == "dockge" && !stack_list.contains_key(&item.name) {
+                        // Skip the dockru stack if not managed
+                        if item.name == "dockru" && !stack_list.contains_key(&item.name) {
                             continue;
                         }
 

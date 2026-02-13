@@ -25,7 +25,7 @@ struct RemoveAgentData {
 
 /// Setup agent management event handlers
 pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
-    // addAgent - Add a remote Dockge instance
+    // addAgent - Add a remote Dockru instance
     let ctx_clone = ctx.clone();
     socket.on(
         "addAgent",
@@ -42,7 +42,7 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         },
     );
 
-    // removeAgent - Remove a remote Dockge instance
+    // removeAgent - Remove a remote Dockru instance
     let ctx_clone = ctx.clone();
     socket.on(
         "removeAgent",

@@ -163,7 +163,7 @@ async fn send_info_after_settings(socket: &SocketRef, ctx: &ServerContext) -> Re
         json!({
             "version": env!("CARGO_PKG_VERSION"),
             "latestVersion": null,
-            "isContainer": std::env::var("DOCKGE_IS_CONTAINER").unwrap_or_default() == "1",
+            "isContainer": std::env::var("DOCKRU_IS_CONTAINER").unwrap_or_default() == "1",
             "primaryHostname": primary_hostname,
         }),
     )?;

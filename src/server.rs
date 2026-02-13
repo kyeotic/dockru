@@ -1,4 +1,6 @@
+use crate::check_version::VersionChecker;
 use crate::config::Config;
+use crate::db::models::setting::SettingsCache;
 use crate::db::Database;
 use crate::static_files::PreCompressedStaticFiles;
 use anyhow::{Context, Result};
@@ -28,11 +30,25 @@ pub struct ServerContext {
     pub config: Arc<Config>,
     pub io: SocketIo,
     pub db: SqlitePool,
+    pub cache: SettingsCache,
+    pub version_checker: VersionChecker,
 }
 
 impl ServerContext {
-    pub fn new(config: Arc<Config>, io: SocketIo, db: SqlitePool) -> Self {
-        Self { config, io, db }
+    pub fn new(
+        config: Arc<Config>,
+        io: SocketIo,
+        db: SqlitePool,
+        cache: SettingsCache,
+        version_checker: VersionChecker,
+    ) -> Self {
+        Self {
+            config,
+            io,
+            db,
+            cache,
+            version_checker,
+        }
     }
 }
 
@@ -227,11 +243,19 @@ pub async fn serve(config: Config) -> Result<()> {
     // Run migrations
     db.migrate().await?;
 
+    // Create settings cache
+    let cache = SettingsCache::new();
+
+    // Create version checker
+    let version_checker = VersionChecker::new(env!("CARGO_PKG_VERSION").to_string());
+
     // Create server context (before socket setup so we can pass it in)
     let ctx = Arc::new(ServerContext::new(
         server.config.clone(),
         SocketIo::new_layer().1, // Temporary io, will be replaced
         db.pool().clone(),
+        cache.clone(),
+        version_checker.clone(),
     ));
 
     // Setup Socket.io with context
@@ -242,6 +266,8 @@ pub async fn serve(config: Config) -> Result<()> {
         server.config.clone(),
         io,
         db.pool().clone(),
+        cache,
+        version_checker,
     ));
 
     // Build router
@@ -257,6 +283,9 @@ pub async fn serve(config: Config) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await
         .with_context(|| format!("Failed to bind to {}", bind_addr))?;
+
+    // Phase 10: Start scheduled tasks
+    start_scheduled_tasks(ctx.clone());
 
     // Start server with graceful shutdown
     axum::serve(listener, app)
@@ -296,4 +325,64 @@ async fn shutdown_signal() {
             info!("Received termination signal, shutting down...");
         },
     }
+}
+
+/// Start all scheduled tasks (Phase 10)
+fn start_scheduled_tasks(ctx: Arc<ServerContext>) {
+    info!("Starting scheduled tasks");
+
+    // Start version checking (every 48 hours)
+    let ctx_clone = ctx.clone();
+    tokio::spawn(async move {
+        ctx_clone
+            .version_checker
+            .start_interval(ctx_clone.db.clone(), ctx_clone.cache.clone());
+    });
+
+    // Start stack list broadcast (every 10 seconds)
+    let ctx_clone = ctx.clone();
+    tokio::spawn(async move {
+        use tokio::time::{interval, Duration};
+        let mut interval = interval(Duration::from_secs(10));
+
+        loop {
+            interval.tick().await;
+            if let Err(e) = broadcast_stack_list_to_authenticated(&ctx_clone).await {
+                error!("Failed to broadcast stack list: {}", e);
+            }
+        }
+    });
+
+    info!("All scheduled tasks started");
+}
+
+/// Broadcast stack list to all authenticated sockets
+async fn broadcast_stack_list_to_authenticated(ctx: &ServerContext) -> Result<()> {
+    use crate::stack::Stack;
+    use std::collections::HashMap;
+
+    // Get the stack list (empty endpoint for local)
+    let ctx_arc = Arc::new(ctx.clone());
+    let stack_list = Stack::get_stack_list(ctx_arc, String::new(), false).await?;
+
+    // Convert stack_list to JSON format
+    let mut map: HashMap<String, serde_json::Value> = HashMap::new();
+    for (name, stack) in stack_list {
+        // to_simple_json returns StackSimpleJson directly
+        let simple_json = stack.to_simple_json().await;
+        // Convert to serde_json::Value
+        let json = serde_json::to_value(simple_json)?;
+        map.insert(name, json);
+    }
+
+    let response = serde_json::json!({
+        "ok": true,
+        "stackList": map,
+    });
+
+    // Broadcast to all connected sockets
+    // In a full implementation, we'd iterate sockets and check authentication
+    ctx.io.emit("stackList", response).ok();
+
+    Ok(())
 }

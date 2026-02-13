@@ -1,9 +1,15 @@
 <template>
-    <router-link :to="url" :class="{ 'dim' : !stack.isManagedByDockge }" class="item">
+    <router-link
+        :to="url"
+        :class="{ dim: !stack.isManagedByDockru }"
+        class="item"
+    >
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
         <div class="title">
             <span>{{ stackName }}</span>
-            <div v-if="$root.agentCount > 1" class="endpoint">{{ endpointDisplay }}</div>
+            <div v-if="$root.agentCount > 1" class="endpoint">
+                {{ endpointDisplay }}
+            </div>
         </div>
     </router-link>
 </template>
@@ -13,7 +19,7 @@ import Uptime from "./Uptime.vue";
 
 export default {
     components: {
-        Uptime
+        Uptime,
     },
     props: {
         /** Stack this represents */
@@ -34,17 +40,17 @@ export default {
         /** Callback to determine if stack is selected */
         isSelected: {
             type: Function,
-            default: () => {}
+            default: () => {},
         },
         /** Callback fired when stack is selected */
         select: {
             type: Function,
-            default: () => {}
+            default: () => {},
         },
         /** Callback fired when stack is deselected */
         deselect: {
             type: Function,
-            default: () => {}
+            default: () => {},
         },
     },
     data() {
@@ -70,17 +76,15 @@ export default {
         },
         stackName() {
             return this.stack.name;
-        }
+        },
     },
     watch: {
         isSelectMode() {
             // TODO: Resize the heartbeat bar, but too slow
             // this.$refs.heartbeatBar.resize();
-        }
+        },
     },
-    beforeMount() {
-
-    },
+    beforeMount() {},
     methods: {
         /**
          * Changes the collapsed value of the current stack and saves
@@ -98,7 +102,10 @@ export default {
             }
             storageObject[`stack_${this.stack.id}`] = this.isCollapsed;
 
-            window.localStorage.setItem("stackCollapsed", JSON.stringify(storageObject));
+            window.localStorage.setItem(
+                "stackCollapsed",
+                JSON.stringify(storageObject),
+            );
         },
 
         /**
@@ -177,5 +184,4 @@ export default {
 .dim {
     opacity: 0.5;
 }
-
 </style>

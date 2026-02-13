@@ -18,7 +18,7 @@ pub const COMBINED_TERMINAL_ROWS: u16 = 20;
 pub const ERROR_TYPE_VALIDATION: i32 = 1;
 
 // Special endpoint marker
-pub const ALL_ENDPOINTS: &str = "##ALL_DOCKGE_ENDPOINTS##";
+pub const ALL_ENDPOINTS: &str = "##ALL_DOCKRU_ENDPOINTS##";
 
 // Accepted compose file names (in order of preference)
 pub const ACCEPTED_COMPOSE_FILE_NAMES: &[&str] = &[
