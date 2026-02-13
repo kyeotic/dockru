@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Socket state stored per connection
 #[derive(Debug, Clone, Default)]
@@ -100,34 +100,39 @@ pub fn error_response_i18n(msg: &str) -> Value {
 
 /// Emit to socket with agent proxy support (stubbed for Phase 7)
 /// In Phase 8, this will route events through agent manager if endpoint is set
+/// Emit an event to the socket, wrapped in the "agent" protocol.
+/// The TypeScript equivalent is `dockgeSocket.emitAgent(event, data)` which sends
+/// `socket.emit("agent", event, { ...data, endpoint })`.
+/// The frontend listens: `socket.on("agent", (eventName, ...args) => agentSocket.call(eventName, ...args))`
 pub fn emit_agent(socket: &SocketRef, event: &str, data: Value) -> Result<()> {
     let endpoint = get_endpoint(socket);
 
-    if endpoint.is_empty() || endpoint == "local" {
-        // Local endpoint - emit directly
-        socket.emit(event.to_string(), &data).ok();
-        debug!("Emitted {} to local socket {}", event, socket.id);
-    } else {
-        // Remote endpoint - would proxy through agent manager in Phase 8
-        // For now, just log and emit locally
-        debug!(
-            "Agent proxy not implemented - would route {} to endpoint {}",
-            event, endpoint
-        );
-        socket.emit(event.to_string(), &data).ok();
-        warn!("Agent proxy is stubbed - emitting locally instead");
+    // Inject endpoint into the data object, matching TypeScript behavior
+    let mut agent_data = data;
+    if let Some(obj) = agent_data.as_object_mut() {
+        obj.insert("endpoint".to_string(), json!(endpoint));
     }
+
+    // Wrap in "agent" event: emit("agent", eventName, data)
+    socket
+        .emit("agent", &(event, &agent_data))
+        .map_err(|e| anyhow::anyhow!("Failed to emit agent event: {}", e))?;
+    debug!("Emitted agent/{} to socket {}", event, socket.id);
 
     Ok(())
 }
 
-/// Broadcast to all authenticated sockets
+/// Emit an agent event to all connected sockets via the SocketIo broadcast.
+pub fn broadcast_agent(io: &socketioxide::SocketIo, event: &str, data: Value) {
+    io.emit("agent", &(event, &data)).ok();
+    debug!("Broadcasted agent/{} to all sockets", event);
+}
+
+/// Broadcast to all authenticated sockets, wrapped in the "agent" protocol.
 pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data: Value) {
-    // TODO:
-    // Phase 8: Iterate through all sockets and emit only to authenticated ones
-    // For now, broadcast to all
-    io.emit(event.to_string(), &data).ok();
-    debug!("Broadcasted {} to all sockets", event);
+    // TODO: Iterate through all sockets and emit only to authenticated ones
+    // For now, broadcast to all wrapped in "agent"
+    broadcast_agent(io, event, data);
 }
 
 /// Handle callback with result

@@ -11,6 +11,9 @@ use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
+use super::stack_management::dispatch_stack_event;
+use super::terminal::dispatch_terminal_event;
+
 #[derive(Debug, Deserialize)]
 struct AddAgentData {
     url: String,
@@ -61,11 +64,17 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 
     // agent - Proxy event to specific endpoint or broadcast
     // Format: agent(endpoint: string, eventName: string, ...args)
+    let ctx_clone = ctx;
     socket.on(
         "agent",
-        move |socket: SocketRef, Data::<serde_json::Value>(data)| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                if let Err(e) = handle_agent_proxy(&socket, data).await {
+                warn!(
+                    "Agent event received, data type: {:?}",
+                    std::mem::discriminant(&data)
+                );
+                if let Err(e) = handle_agent_proxy(&socket, &ctx, data, ack).await {
                     warn!("Agent proxy error: {}", e);
                 }
             });
@@ -141,7 +150,9 @@ async fn handle_remove_agent(
 
 async fn handle_agent_proxy(
     socket: &SocketRef,
+    ctx: &ServerContext,
     data: serde_json::Value,
+    ack: AckSender,
 ) -> Result<(), anyhow::Error> {
     check_login(socket)?;
 
@@ -164,11 +175,11 @@ async fn handle_agent_proxy(
         .as_str()
         .ok_or_else(|| anyhow!("Event name must be a string"))?;
 
-    // Remaining args
-    let event_args = if args_array.len() > 2 {
-        json!(args_array[2..].to_vec())
+    // Remaining args (after endpoint and eventName)
+    let event_args: Vec<serde_json::Value> = if args_array.len() > 2 {
+        args_array[2..].to_vec()
     } else {
-        json!([])
+        vec![]
     };
 
     let socket_endpoint = get_endpoint(socket);
@@ -181,23 +192,65 @@ async fn handle_agent_proxy(
     if endpoint == ALL_ENDPOINTS {
         // Send to all endpoints
         debug!("Sending to all endpoints: {}", event_name);
-        manager.emit_to_all_endpoints(event_name, event_args).await;
+
+        // Handle locally first
+        let mut local_ack = Some(ack);
+        dispatch_local_event(socket, ctx, event_name, &event_args, &mut local_ack).await;
+
+        // Forward to remote endpoints
+        manager
+            .emit_to_all_endpoints(event_name, json!(event_args))
+            .await;
     } else if endpoint.is_empty() || endpoint == socket_endpoint {
         // Direct connection or matching endpoint - handle locally
-        debug!("Matched local endpoint: {}", event_name);
-
-        // TODO: Call local agent socket handler (AgentSocket::call)
-        // For now, just log
-        warn!("Local agent event handling not implemented: {}", event_name);
+        debug!("Handling local event: {}", event_name);
+        let mut local_ack = Some(ack);
+        dispatch_local_event(socket, ctx, event_name, &event_args, &mut local_ack).await;
     } else {
         // Proxy to specific remote endpoint
         debug!("Proxying request to {} for {}", endpoint, event_name);
+        // TODO: Forward ack to remote endpoint
         manager
-            .emit_to_endpoint(endpoint, event_name, event_args)
+            .emit_to_endpoint(endpoint, event_name, json!(event_args))
             .await?;
     }
 
     Ok(())
+}
+
+/// Dispatch a local agent event to the appropriate handler.
+async fn dispatch_local_event(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    event_name: &str,
+    event_args: &[serde_json::Value],
+    ack: &mut Option<AckSender>,
+) {
+    // Try stack handlers first
+    match dispatch_stack_event(socket, ctx, event_name, event_args, ack).await {
+        Ok(true) => return,
+        Ok(false) => {} // Not a stack event, try next
+        Err(e) => {
+            warn!("Stack event dispatch error for {}: {}", event_name, e);
+            callback_error(ack.take(), e);
+            return;
+        }
+    }
+
+    // Try terminal handlers
+    match dispatch_terminal_event(socket, ctx, event_name, event_args, ack).await {
+        Ok(true) => return,
+        Ok(false) => {} // Not a terminal event either
+        Err(e) => {
+            warn!("Terminal event dispatch error for {}: {}", event_name, e);
+            callback_error(ack.take(), e);
+            return;
+        }
+    }
+
+    // No handler found
+    warn!("Unknown local agent event: {}", event_name);
+    callback_error(ack.take(), anyhow!("Unknown event: {}", event_name));
 }
 
 #[cfg(test)]

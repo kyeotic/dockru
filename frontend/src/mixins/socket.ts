@@ -297,7 +297,27 @@ export default defineComponent({
         },
 
         emitAgent(endpoint: string, eventName: string, ...args: unknown[]) {
-            this.getSocket().emit("agent", endpoint, eventName, ...args);
+            // Separate callback (ack) from data args.
+            // Socket.IO treats a trailing function as an ack callback.
+            let callback: ((...cbArgs: unknown[]) => void) | undefined;
+            let dataArgs = args;
+            if (
+                args.length > 0 &&
+                typeof args[args.length - 1] === "function"
+            ) {
+                callback = args[args.length - 1] as (
+                    ...cbArgs: unknown[]
+                ) => void;
+                dataArgs = args.slice(0, -1);
+            }
+            // Pack all data into a single array so the server receives it
+            // as one Value via socketioxide's Data extractor.
+            const payload = [endpoint, eventName, ...dataArgs];
+            if (callback) {
+                this.getSocket().emit("agent", payload, callback);
+            } else {
+                this.getSocket().emit("agent", payload);
+            }
         },
 
         /**

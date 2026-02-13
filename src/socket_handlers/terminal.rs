@@ -1,10 +1,10 @@
 use crate::server::ServerContext;
-use crate::socket_handlers::{callback_error, check_login, get_endpoint};
+use crate::socket_handlers::{callback_error, callback_ok, check_login, get_endpoint};
 use crate::stack::Stack;
 use crate::terminal::{Terminal, TerminalType};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -39,11 +39,16 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "terminalInput",
-        move |socket: SocketRef, Data::<TerminalInputData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                if let Err(e) = handle_terminal_input(&socket, &ctx, data).await {
-                    callback_error(Some(ack), e);
+                match parse_terminal_input_args(&data) {
+                    Ok(parsed) => {
+                        if let Err(e) = handle_terminal_input(&socket, &ctx, parsed).await {
+                            callback_error(Some(ack), e);
+                        }
+                    }
+                    Err(e) => callback_error(Some(ack), e),
                 }
             });
         },
@@ -87,15 +92,18 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "interactiveTerminal",
-        move |socket: SocketRef, Data::<InteractiveTerminalData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                match handle_interactive_terminal(&socket, &ctx, data).await {
-                    Ok(response) => {
-                        ack.send(&response).ok();
-                    }
+                match parse_interactive_terminal_args(&data) {
+                    Ok(parsed) => match handle_interactive_terminal(&socket, &ctx, parsed).await {
+                        Ok(response) => {
+                            ack.send(&response).ok();
+                        }
+                        Err(e) => callback_error(Some(ack), e),
+                    },
                     Err(e) => callback_error(Some(ack), e),
-                };
+                }
             });
         },
     );
@@ -138,15 +146,190 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "terminalResize",
-        move |socket: SocketRef, Data::<TerminalResizeData>(data)| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data)| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                if let Err(e) = handle_terminal_resize(&socket, &ctx, data).await {
-                    debug!("terminalResize error: {}", e);
+                match parse_terminal_resize_args(&data) {
+                    Ok(parsed) => {
+                        if let Err(e) = handle_terminal_resize(&socket, &ctx, parsed).await {
+                            debug!("terminalResize error: {}", e);
+                        }
+                    }
+                    Err(e) => debug!("terminalResize parse error: {}", e),
                 }
             });
         },
     );
+}
+
+/// Parse terminalInput positional args: [terminalName, cmd]
+fn parse_terminal_input_args(data: &Value) -> Result<TerminalInputData> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 2 {
+        return Err(anyhow!(
+            "terminalInput requires 2 arguments: terminalName, cmd"
+        ));
+    }
+    Ok(TerminalInputData {
+        terminal_name: args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("terminalName must be a string"))?
+            .to_string(),
+        cmd: args[1]
+            .as_str()
+            .ok_or_else(|| anyhow!("cmd must be a string"))?
+            .to_string(),
+    })
+}
+
+/// Parse interactiveTerminal positional args: [stackName, serviceName, shell]
+fn parse_interactive_terminal_args(data: &Value) -> Result<InteractiveTerminalData> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 3 {
+        return Err(anyhow!(
+            "interactiveTerminal requires 3 arguments: stackName, serviceName, shell"
+        ));
+    }
+    Ok(InteractiveTerminalData {
+        stack_name: args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("stackName must be a string"))?
+            .to_string(),
+        service_name: args[1]
+            .as_str()
+            .ok_or_else(|| anyhow!("serviceName must be a string"))?
+            .to_string(),
+        shell: args[2]
+            .as_str()
+            .ok_or_else(|| anyhow!("shell must be a string"))?
+            .to_string(),
+    })
+}
+
+/// Parse terminalResize positional args: [terminalName, rows, cols]
+fn parse_terminal_resize_args(data: &Value) -> Result<TerminalResizeData> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 3 {
+        return Err(anyhow!(
+            "terminalResize requires 3 arguments: terminalName, rows, cols"
+        ));
+    }
+    Ok(TerminalResizeData {
+        terminal_name: args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("terminalName must be a string"))?
+            .to_string(),
+        rows: args[1]
+            .as_u64()
+            .ok_or_else(|| anyhow!("rows must be a number"))? as u16,
+        cols: args[2]
+            .as_u64()
+            .ok_or_else(|| anyhow!("cols must be a number"))? as u16,
+    })
+}
+
+/// Dispatch a terminal event from the agent proxy (local endpoint).
+/// Returns Ok(true) if the event was handled, Ok(false) if not recognized.
+pub(crate) async fn dispatch_terminal_event(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    event_name: &str,
+    event_args: &[Value],
+    ack: &mut Option<AckSender>,
+) -> Result<bool> {
+    match event_name {
+        "terminalInput" => {
+            let data = parse_terminal_input_args(&json!(event_args))?;
+            if let Err(e) = handle_terminal_input(socket, ctx, data).await {
+                callback_error(ack.take(), e);
+            }
+            Ok(true)
+        }
+        "mainTerminal" => {
+            let terminal_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            match handle_main_terminal(socket, ctx, terminal_name).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "checkMainTerminal" => {
+            match handle_check_main_terminal(socket, ctx).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "interactiveTerminal" => {
+            let data = parse_interactive_terminal_args(&json!(event_args))?;
+            match handle_interactive_terminal(socket, ctx, data).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "terminalJoin" => {
+            let terminal_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("terminalJoin requires a terminal name"))?
+                .to_string();
+            match handle_terminal_join(socket, ctx, terminal_name).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "leaveCombinedTerminal" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("leaveCombinedTerminal requires a stack name"))?;
+            match handle_leave_combined_terminal(socket, ctx, stack_name).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "terminalResize" => {
+            let data = parse_terminal_resize_args(&json!(event_args))?;
+            if let Err(e) = handle_terminal_resize(socket, ctx, data).await {
+                debug!("terminalResize error: {}", e);
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
 }
 
 async fn handle_terminal_input(
@@ -273,6 +456,8 @@ async fn handle_terminal_join(
     check_login(socket)?;
 
     let buffer = if let Some(terminal) = Terminal::get_terminal(&terminal_name).await {
+        // Join the socket to the terminal's room so it receives live broadcasts
+        terminal.join(socket.clone()).await?;
         terminal.get_buffer().await
     } else {
         debug!("No terminal found: {}", terminal_name);

@@ -366,7 +366,7 @@ impl Terminal {
         let _ = self
             .io
             .to(room_name)
-            .emit("terminalWrite", (&self.name, data));
+            .emit("agent", &("terminalWrite", &self.name, data));
     }
 
     /// Spawn cleanup task for kicking disconnected clients and keep-alive

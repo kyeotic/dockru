@@ -394,9 +394,9 @@ async fn broadcast_stack_list_to_authenticated(ctx: &ServerContext) -> Result<()
         "stackList": map,
     });
 
-    // Broadcast to all connected sockets
-    // In a full implementation, we'd iterate sockets and check authentication
-    ctx.io.emit("stackList", response).ok();
+    // Broadcast to all connected sockets wrapped in "agent" protocol
+    // The frontend listens for socket.on("agent", (eventName, ...args) => ...)
+    ctx.io.emit("agent", &("stackList", &response)).ok();
 
     Ok(())
 }

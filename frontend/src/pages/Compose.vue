@@ -765,6 +765,26 @@ export default {
         saveStack() {
             this.processing = true;
 
+            // Auto-populate name from first service if empty (same as deployStack)
+            if (!this.stack.name && this.jsonConfig?.services) {
+                let serviceNameList = Object.keys(this.jsonConfig.services);
+                if (serviceNameList.length > 0) {
+                    let serviceName = serviceNameList[0];
+                    let service = this.jsonConfig.services[serviceName];
+                    if (service && service.container_name) {
+                        this.stack.name = service.container_name;
+                    } else {
+                        this.stack.name = serviceName;
+                    }
+                }
+            }
+
+            if (!this.stack.name) {
+                this.$root.toastError("Stack name is required");
+                this.processing = false;
+                return;
+            }
+
             this.$root.emitAgent(
                 this.stack.endpoint,
                 "saveStack",

@@ -29,7 +29,9 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         let ctx = ctx_clone.clone();
         tokio::spawn(async move {
             match handle_get_settings(&socket, &ctx).await {
-                Ok(response) => { ack.send(&response).ok(); },
+                Ok(response) => {
+                    ack.send(&response).ok();
+                }
                 Err(e) => callback_error(Some(ack), e),
             };
         });
@@ -38,18 +40,26 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "setSettings",
-        move |socket: SocketRef, Data::<SetSettingsData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                if let Err(e) = handle_set_settings(&socket, &ctx, data).await {
-                    callback_error(Some(ack), e);
-                } else {
-                    callback_ok(Some(ack), "Saved", false);
-                    
-                    // Re-send info after settings change
-                    if let Err(e) = send_info_after_settings(&socket, &ctx).await {
-                        debug!("Failed to send info: {}", e);
+                match parse_set_settings_args(&data) {
+                    Ok((settings_data, current_password)) => {
+                        if let Err(e) =
+                            handle_set_settings(&socket, &ctx, settings_data, current_password)
+                                .await
+                        {
+                            callback_error(Some(ack), e);
+                        } else {
+                            callback_ok(Some(ack), "Saved", false);
+
+                            // Re-send info after settings change
+                            if let Err(e) = send_info_after_settings(&socket, &ctx).await {
+                                debug!("Failed to send info: {}", e);
+                            }
+                        }
                     }
+                    Err(e) => callback_error(Some(ack), e),
                 }
             });
         },
@@ -62,7 +72,9 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_composerize(&socket, &ctx, docker_run_command).await {
-                    Ok(response) => { ack.send(&response).ok(); },
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
                     Err(e) => callback_error(Some(ack), e),
                 };
             });
@@ -70,10 +82,20 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     );
 }
 
-async fn handle_get_settings(
-    socket: &SocketRef,
-    ctx: &ServerContext,
-) -> Result<serde_json::Value> {
+/// Parse setSettings positional args: [settingsObj, currentPassword?]
+fn parse_set_settings_args(data: &serde_json::Value) -> Result<(SetSettingsData, Option<String>)> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.is_empty() {
+        return Err(anyhow!("setSettings requires at least a settings argument"));
+    }
+    let settings_data: SetSettingsData = serde_json::from_value(args[0].clone())?;
+    let current_password = args.get(1).and_then(|v| v.as_str()).map(|s| s.to_string());
+    Ok((settings_data, current_password))
+}
+
+async fn handle_get_settings(socket: &SocketRef, ctx: &ServerContext) -> Result<serde_json::Value> {
     check_login(socket)?;
 
     let cache = SettingsCache::default();
@@ -102,13 +124,14 @@ async fn handle_set_settings(
     socket: &SocketRef,
     ctx: &ServerContext,
     data: SetSettingsData,
+    _current_password: Option<String>,
 ) -> Result<()> {
     let user_id = check_login(socket)?;
     debug!("User {} updating settings", user_id);
 
     // Handle global.env
     let global_env_path = ctx.config.stacks_dir.join("global.env");
-    
+
     if let Some(global_env) = &data.global_env {
         if global_env != "# VARIABLE=value #comment" && !global_env.is_empty() {
             // Write global.env
@@ -126,10 +149,10 @@ async fn handle_set_settings(
     settings_to_save.remove("globalENV");
 
     let cache = SettingsCache::default();
-    
+
     // Check for disableAuth change - this requires current password verification
     // TODO: Implement password validation when changing disableAuth from false to true
-    
+
     for (key, value) in settings_to_save {
         Setting::set(&ctx.db, &cache, &key, &value, Some("general")).await?;
     }
@@ -147,7 +170,7 @@ async fn handle_composerize(
     // 1. Shell out to Node.js composerize package
     // 2. Port the composerize logic to Rust
     // 3. Use an external service
-    
+
     Err(anyhow!("composerize is not yet implemented"))
 }
 

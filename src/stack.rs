@@ -218,7 +218,10 @@ impl Stack {
 
     /// Validate the stack before saving
     pub async fn validate(&mut self) -> Result<()> {
-        // Check name, allows [a-z][0-9] _ - only
+        // Check name, allows [a-z][0-9] _ - only (must be non-empty)
+        if self.name.is_empty() {
+            anyhow::bail!("Stack name must not be empty");
+        }
         if !self
             .name
             .chars()
@@ -343,9 +346,16 @@ impl Stack {
         self.validate().await?;
 
         let dir = self.path();
+        warn!(
+            "Stack save: name={}, is_add={}, dir={}",
+            self.name,
+            is_add,
+            dir.display()
+        );
 
         if is_add {
             if fs::metadata(&dir).await.is_ok() {
+                warn!("Stack save: directory already exists at {}", dir.display());
                 anyhow::bail!("Stack name already exists");
             }
             fs::create_dir_all(&dir)
@@ -770,24 +780,28 @@ impl Stack {
     pub async fn get_stack(ctx: Arc<ServerContext>, name: &str, endpoint: String) -> Result<Stack> {
         let stack_path = ctx.config.stacks_dir.join(name);
 
-        // Check if directory exists
+        // Check if directory exists in stacks_dir (managed stack)
         if let Ok(metadata) = fs::metadata(&stack_path).await {
-            if !metadata.is_dir() {
-                // Not a directory, might be external stack
-                anyhow::bail!("Stack not found");
+            if metadata.is_dir() {
+                let mut stack = Stack::new(ctx, name.to_string(), endpoint);
+                stack.detect_compose_file().await?;
+                stack.status = UNKNOWN;
+                stack.config_file_path = Some(stack_path.display().to_string());
+                return Ok(stack);
             }
-        } else {
-            // Directory doesn't exist, might be external stack
-            // For now, just return error - external stack handling will be improved later
-            anyhow::bail!("Stack not found");
         }
 
-        let mut stack = Stack::new(ctx, name.to_string(), endpoint);
-        stack.detect_compose_file().await?;
-        stack.status = UNKNOWN;
-        stack.config_file_path = Some(stack_path.display().to_string());
+        // Directory doesn't exist — check if it's an unmanaged stack known to docker compose
+        let stack_list = Self::get_stack_list(ctx.clone(), endpoint.clone(), true).await?;
+        if let Some(stack) = stack_list
+            .into_iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, s)| s)
+        {
+            return Ok(stack);
+        }
 
-        Ok(stack)
+        anyhow::bail!("Stack not found");
     }
 
     /// Get the complete stack list (managed + unmanaged stacks)

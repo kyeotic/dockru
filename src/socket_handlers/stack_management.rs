@@ -3,11 +3,11 @@ use crate::socket_handlers::{callback_error, callback_ok, check_login, get_endpo
 use crate::stack::{ServiceStatus, Stack};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, warn};
 
 #[derive(Debug, Deserialize)]
 struct DeployStackData {
@@ -37,14 +37,17 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "deployStack",
-        move |socket: SocketRef, Data::<DeployStackData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                match handle_deploy_stack(&socket, &ctx, data).await {
-                    Ok(_) => {
-                        callback_ok(Some(ack), "Deployed", true);
-                        broadcast_stack_list(&ctx).await;
-                    }
+                match parse_deploy_stack_args(&data) {
+                    Ok(parsed) => match handle_deploy_stack(&socket, &ctx, parsed).await {
+                        Ok(_) => {
+                            callback_ok(Some(ack), "Deployed", true);
+                            broadcast_stack_list(&ctx).await;
+                        }
+                        Err(e) => callback_error(Some(ack), e),
+                    },
                     Err(e) => callback_error(Some(ack), e),
                 }
             });
@@ -55,14 +58,17 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "saveStack",
-        move |socket: SocketRef, Data::<SaveStackData>(data), ack: AckSender| {
+        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                match handle_save_stack(&socket, &ctx, data).await {
-                    Ok(_) => {
-                        callback_ok(Some(ack), "Saved", true);
-                        broadcast_stack_list(&ctx).await;
-                    }
+                match parse_save_stack_args(&data) {
+                    Ok(parsed) => match handle_save_stack(&socket, &ctx, parsed).await {
+                        Ok(_) => {
+                            callback_ok(Some(ack), "Saved", true);
+                            broadcast_stack_list(&ctx).await;
+                        }
+                        Err(e) => callback_error(Some(ack), e),
+                    },
                     Err(e) => callback_error(Some(ack), e),
                 }
             });
@@ -242,6 +248,240 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             });
         },
     );
+}
+
+/// Parse deployStack positional args: [name, composeYAML, composeENV, isAdd]
+fn parse_deploy_stack_args(data: &Value) -> Result<DeployStackData> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 4 {
+        return Err(anyhow!(
+            "deployStack requires 4 arguments: name, composeYAML, composeENV, isAdd"
+        ));
+    }
+    Ok(DeployStackData {
+        name: args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("name must be a string"))?
+            .to_string(),
+        compose_yaml: args[1]
+            .as_str()
+            .ok_or_else(|| anyhow!("composeYAML must be a string"))?
+            .to_string(),
+        compose_env: args[2]
+            .as_str()
+            .ok_or_else(|| anyhow!("composeENV must be a string"))?
+            .to_string(),
+        is_add: args[3]
+            .as_bool()
+            .ok_or_else(|| anyhow!("isAdd must be a boolean"))?,
+    })
+}
+
+/// Parse saveStack positional args: [name, composeYAML, composeENV, isAdd]
+fn parse_save_stack_args(data: &Value) -> Result<SaveStackData> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 4 {
+        return Err(anyhow!(
+            "saveStack requires 4 arguments: name, composeYAML, composeENV, isAdd"
+        ));
+    }
+    Ok(SaveStackData {
+        name: args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("name must be a string"))?
+            .to_string(),
+        compose_yaml: args[1]
+            .as_str()
+            .ok_or_else(|| anyhow!("composeYAML must be a string"))?
+            .to_string(),
+        compose_env: args[2]
+            .as_str()
+            .ok_or_else(|| anyhow!("composeENV must be a string"))?
+            .to_string(),
+        is_add: args[3]
+            .as_bool()
+            .ok_or_else(|| anyhow!("isAdd must be a boolean"))?,
+    })
+}
+
+/// Dispatch a stack event from the agent proxy (local endpoint).
+/// Returns Ok(true) if the event was handled, Ok(false) if not recognized.
+pub(crate) async fn dispatch_stack_event(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    event_name: &str,
+    event_args: &[Value],
+    ack: &mut Option<AckSender>,
+) -> Result<bool> {
+    match event_name {
+        "deployStack" => {
+            let data = parse_deploy_stack_args(&json!(event_args))?;
+            match handle_deploy_stack(socket, ctx, data).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Deployed", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "saveStack" => {
+            warn!(
+                "dispatch_stack_event saveStack: event_args={:?}",
+                event_args
+            );
+            let data = parse_save_stack_args(&json!(event_args))?;
+            warn!(
+                "dispatch_stack_event saveStack parsed: name={}, is_add={}",
+                data.name, data.is_add
+            );
+            match handle_save_stack(socket, ctx, data).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Saved", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "deleteStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("deleteStack requires a stack name"))?;
+            match handle_delete_stack(socket, ctx, stack_name).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Deleted", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "getStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("getStack requires a stack name"))?;
+            match handle_get_stack(socket, ctx, stack_name).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "requestStackList" => {
+            if check_login(socket).is_ok() {
+                broadcast_stack_list(ctx).await;
+                callback_ok(ack.take(), "Updated", true);
+            }
+            Ok(true)
+        }
+        "startStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("startStack requires a stack name"))?;
+            match handle_start_stack(socket, ctx, stack_name).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Started", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "stopStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("stopStack requires a stack name"))?;
+            match handle_stop_stack(socket, ctx, stack_name).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Stopped", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "restartStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("restartStack requires a stack name"))?;
+            match handle_restart_stack(socket, ctx, stack_name).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Restarted", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "updateStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("updateStack requires a stack name"))?;
+            match handle_update_stack(socket, ctx, stack_name).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Updated", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "downStack" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("downStack requires a stack name"))?;
+            match handle_down_stack(socket, ctx, stack_name).await {
+                Ok(_) => {
+                    callback_ok(ack.take(), "Downed", true);
+                    broadcast_stack_list(ctx).await;
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "serviceStatusList" => {
+            let stack_name = event_args
+                .first()
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("serviceStatusList requires a stack name"))?;
+            match handle_service_status_list(socket, ctx, stack_name).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "getDockerNetworkList" => {
+            match handle_get_docker_network_list(socket, ctx).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
 }
 
 async fn handle_deploy_stack(
@@ -452,12 +692,32 @@ async fn handle_get_docker_network_list(
 
 /// Broadcast stack list to all authenticated sockets
 async fn broadcast_stack_list(ctx: &ServerContext) {
-    // TODO Phase 7: Implement proper broadcasting to all authenticated sockets
-    // For now, just log
-    debug!("Broadcasting stack list (stubbed)");
+    use crate::stack::Stack;
+    use std::collections::HashMap;
 
-    // In Phase 8, we'll iterate through all sockets, check authentication,
-    // and emit stackList to each with their specific endpoint
+    let ctx_arc = Arc::new(ctx.clone());
+    match Stack::get_stack_list(ctx_arc, String::new(), false).await {
+        Ok(stack_list) => {
+            let mut map: HashMap<String, serde_json::Value> = HashMap::new();
+            for (name, stack) in stack_list {
+                let simple_json = stack.to_simple_json().await;
+                if let Ok(json) = serde_json::to_value(simple_json) {
+                    map.insert(name, json);
+                }
+            }
+
+            let response = json!({
+                "ok": true,
+                "stackList": map,
+            });
+
+            // Broadcast wrapped in "agent" protocol
+            ctx.io.emit("agent", &("stackList", &response)).ok();
+        }
+        Err(e) => {
+            debug!("Failed to get stack list for broadcast: {}", e);
+        }
+    }
 }
 
 #[cfg(test)]

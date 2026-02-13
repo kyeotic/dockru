@@ -28,7 +28,6 @@ struct LoginData {
     token: Option<String>, // 2FA token
 }
 
-
 #[derive(Debug, Deserialize)]
 struct ChangePasswordData {
     #[serde(rename = "currentPassword")]
