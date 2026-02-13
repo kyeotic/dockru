@@ -304,7 +304,10 @@ mod tests {
         assert!(agent.active);
 
         // Find by ID
-        let found = Agent::find_by_id(pool, agent.id, TEST_SECRET).await.unwrap().unwrap();
+        let found = Agent::find_by_id(pool, agent.id, TEST_SECRET)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found.url, agent.url);
         assert_eq!(found.password, "secret");
 
@@ -338,8 +341,14 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(is_password_encrypted(&row.0), "Password in DB should be encrypted");
-        assert_ne!(row.0, "my_secret_pass", "Password in DB should not be plaintext");
+        assert!(
+            is_password_encrypted(&row.0),
+            "Password in DB should be encrypted"
+        );
+        assert_ne!(
+            row.0, "my_secret_pass",
+            "Password in DB should not be plaintext"
+        );
     }
 
     #[tokio::test]
@@ -549,7 +558,9 @@ mod tests {
 
         Agent::delete(pool, agent_id).await.unwrap();
 
-        let found = Agent::find_by_id(pool, agent_id, TEST_SECRET).await.unwrap();
+        let found = Agent::find_by_id(pool, agent_id, TEST_SECRET)
+            .await
+            .unwrap();
         assert!(found.is_none());
     }
 
@@ -578,11 +589,15 @@ mod tests {
             .unwrap();
 
         // Run migration
-        let migrated = Agent::migrate_plaintext_passwords(pool, TEST_SECRET).await.unwrap();
+        let migrated = Agent::migrate_plaintext_passwords(pool, TEST_SECRET)
+            .await
+            .unwrap();
         assert_eq!(migrated, 2);
 
         // Running again should migrate 0 (already encrypted)
-        let migrated = Agent::migrate_plaintext_passwords(pool, TEST_SECRET).await.unwrap();
+        let migrated = Agent::migrate_plaintext_passwords(pool, TEST_SECRET)
+            .await
+            .unwrap();
         assert_eq!(migrated, 0);
 
         // Verify passwords are decrypted correctly
