@@ -170,21 +170,19 @@ use rust comperize-np: https://github.com/leruetkins/composerize-np
 
 ### 2.4 YAML Comment Preservation
 
-**Status:** Stubbed (Is it really?)
-**Location:** [src/utils/yaml_utils.rs](src/utils/yaml_utils.rs#L80)
+**Status:** ✅ Not needed on backend
+**Location:** [frontend/common/util-common.ts](frontend/common/util-common.ts#L233)
 
-**Current Behavior:**
-- `copy_yaml_comments()` returns document as-is
-- Comments lost when editing compose files
-- Not critical since most edits are full file replacements
+**Analysis:**
+Comment preservation is entirely a frontend concern. The frontend's `copyYAMLComments()` 
+function (using the `yaml` npm library's `Document` AST) already preserves comments when 
+the user edits via the form UI. The backend receives the raw YAML string with comments 
+already intact and writes it directly to disk — it never parses and re-serializes during save.
 
-**What's Needed:**
-Three options:
-1. Use different YAML library with comment support
-2. Implement custom YAML parser with AST preservation  
-3. String-based manipulation for simple edits
+The Rust `copy_yaml_comments()` stub in `yaml_utils.rs` is dead code with zero callers 
+and can be removed.
 
-**Priority:** High - essential UI feature
+**Priority:** ~~High~~ Done — no backend work needed
 
 ---
 
@@ -540,7 +538,7 @@ Three options:
 - Rollback procedures
 - Agent compatibility notes
 
-**Priority:** High - Critical for existing users
+**Priority:** Low - Critical for existing users, not new ones
 
 ---
 
@@ -549,9 +547,8 @@ Three options:
 ### High Priority (Security/Blocking)
 1. ✅ Agent password encryption (AES-256-GCM at rest)
 2. ✅ Password validation when disabling auth
-3. 📝 Migration guide for existing users
-4. ⚠️ YAML comment preservation
-5. ⚠️ Docker CLI → SDK migration
+3. ✅ YAML comment preservation (handled by frontend, no backend work needed)
+4. ⚠️ Docker CLI → SDK migration
 
 ### Medium Priority (Functionality)
 6. Socket state management and authentication filtering

@@ -30,23 +30,21 @@ pub fn envsubst(s: &str, variables: &HashMap<String, String>) -> String {
 /// Result containing the YAML with substituted variables
 pub fn envsubst_yaml(content: &str, env: &HashMap<String, String>) -> Result<String> {
     // Parse the YAML
-    let mut docs = YamlLoader::load_from_str(content)
-        .context("Failed to parse YAML")?;
-    
+    let mut docs = YamlLoader::load_from_str(content).context("Failed to parse YAML")?;
+
     if docs.is_empty() {
         return Ok(content.to_string());
     }
-    
+
     // Substitute variables in the first document
     let doc = docs.remove(0);
     let substituted = traverse_yaml_for_envsubst(doc, env);
-    
+
     // Emit back to string
     let mut output = String::new();
     let mut emitter = YamlEmitter::new(&mut output);
-    emitter.dump(&substituted)
-        .context("Failed to emit YAML")?;
-    
+    emitter.dump(&substituted).context("Failed to emit YAML")?;
+
     Ok(output)
 }
 
@@ -75,30 +73,6 @@ fn traverse_yaml_for_envsubst(yaml: Yaml, env: &HashMap<String, String>) -> Yaml
     }
 }
 
-/// Copy YAML comments from source document to destination document
-///
-/// Note: yaml-rust2 has limited comment preservation support.
-/// This is a placeholder for the full implementation which would require
-/// more sophisticated AST manipulation or a different YAML library.
-///
-/// # Arguments
-/// * `doc` - Destination YAML document
-/// * `src` - Source YAML document with comments to copy
-///
-/// # Returns
-/// The document with comments (currently returns doc as-is)
-pub fn copy_yaml_comments(doc: Yaml, _src: Yaml) -> Yaml {
-    // TODO: This is a simplified implementation
-    // Full comment preservation would require:
-    // 1. Custom YAML parser that preserves comment AST nodes
-    // 2. Or using a different library like serde_yaml with custom deserializer
-    // 3. Or manual string manipulation to preserve comments
-    //
-    // For now, we return the document as-is
-    // This will need to be enhanced when stack editing is implemented
-    doc
-}
-
 /// Parse YAML from a string
 ///
 /// # Arguments
@@ -107,8 +81,7 @@ pub fn copy_yaml_comments(doc: Yaml, _src: Yaml) -> Yaml {
 /// # Returns
 /// Result containing the parsed YAML document
 pub fn parse_yaml(content: &str) -> Result<Vec<Yaml>> {
-    YamlLoader::load_from_str(content)
-        .context("Failed to parse YAML")
+    YamlLoader::load_from_str(content).context("Failed to parse YAML")
 }
 
 /// Convert YAML document to string
@@ -121,8 +94,7 @@ pub fn parse_yaml(content: &str) -> Result<Vec<Yaml>> {
 pub fn yaml_to_string(doc: &Yaml) -> Result<String> {
     let mut output = String::new();
     let mut emitter = YamlEmitter::new(&mut output);
-    emitter.dump(doc)
-        .context("Failed to emit YAML")?;
+    emitter.dump(doc).context("Failed to emit YAML")?;
     Ok(output)
 }
 
@@ -134,7 +106,7 @@ mod tests {
     fn test_envsubst_basic() {
         let mut vars = HashMap::new();
         vars.insert("NAME".to_string(), "World".to_string());
-        
+
         let result = envsubst("Hello ${NAME}", &vars);
         assert_eq!(result, "Hello World");
     }
@@ -142,7 +114,7 @@ mod tests {
     #[test]
     fn test_envsubst_missing_var() {
         let vars = HashMap::new();
-        
+
         let result = envsubst("Hello ${NAME}", &vars);
         // envsubst should leave undefined variables as-is or empty
         assert!(result.starts_with("Hello"));
@@ -154,11 +126,11 @@ mod tests {
 name: ${APP_NAME}
 version: ${VERSION}
 "#;
-        
+
         let mut env = HashMap::new();
         env.insert("APP_NAME".to_string(), "myapp".to_string());
         env.insert("VERSION".to_string(), "1.0.0".to_string());
-        
+
         let result = envsubst_yaml(yaml, &env).unwrap();
         assert!(result.contains("myapp"));
         assert!(result.contains("1.0.0"));
@@ -173,11 +145,11 @@ services:
     environment:
       - DATABASE_URL=${DB_URL}
 "#;
-        
+
         let mut env = HashMap::new();
         env.insert("VERSION".to_string(), "latest".to_string());
         env.insert("DB_URL".to_string(), "postgres://localhost".to_string());
-        
+
         let result = envsubst_yaml(yaml, &env).unwrap();
         assert!(result.contains("latest"));
         assert!(result.contains("postgres://localhost"));
@@ -192,7 +164,7 @@ list:
   - item1
   - item2
 "#;
-        
+
         let docs = parse_yaml(yaml).unwrap();
         assert!(!docs.is_empty());
     }
@@ -211,7 +183,7 @@ list:
 key: value
 number: 42
 "#;
-        
+
         let docs = parse_yaml(yaml).unwrap();
         let output = yaml_to_string(&docs[0]).unwrap();
         assert!(output.contains("key"));
