@@ -17,12 +17,6 @@ struct SetSettingsData {
     global_env: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct ComposerizeData {
-    command: String,
-}
-
 /// Setup settings event handlers
 pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
@@ -200,15 +194,24 @@ async fn handle_set_settings(
 async fn handle_composerize(
     _socket: &SocketRef,
     _ctx: &ServerContext,
-    _docker_run_command: String,
+    docker_run_command: String,
 ) -> Result<serde_json::Value> {
-    // TODO Phase 7: Implement composerize
-    // Options:
-    // 1. Shell out to Node.js composerize package
-    // 2. Port the composerize logic to Rust
-    // 3. Use an external service
+    // Convert docker run command to docker-compose YAML
+    // Parameters: command, project_name (empty), version ("latest"), indent (2)
+    let compose_yaml = composerize_np::composerize(&docker_run_command, "", "latest", 2)
+        .map_err(|e| anyhow!("Failed to convert docker run command: {}", e))?;
 
-    Err(anyhow!("composerize is not yet implemented"))
+    // Remove the first line "name: <your project name>" to match TS behavior
+    let compose_template = compose_yaml
+        .split('\n')
+        .skip(1)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    Ok(json!({
+        "ok": true,
+        "composeTemplate": compose_template
+    }))
 }
 
 /// Send updated info after settings change
@@ -245,5 +248,15 @@ mod tests {
         let data: SetSettingsData = serde_json::from_str(json).unwrap();
         assert_eq!(data.settings.get("primaryHostname").unwrap(), "localhost");
         assert_eq!(data.global_env.as_ref().unwrap(), "FOO=bar\n");
+    }
+
+    #[test]
+    fn test_composerize_basic() {
+        // Test that composerize can convert a simple docker run command
+        let result = composerize_np::composerize("docker run -p 80:80 nginx", "", "latest", 2);
+        assert!(result.is_ok());
+        let yaml = result.unwrap();
+        assert!(yaml.contains("nginx"));
+        assert!(yaml.contains("80:80"));
     }
 }

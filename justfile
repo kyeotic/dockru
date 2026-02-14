@@ -3,7 +3,7 @@ default:
 
 # Run backend with cargo watch, serving pre-built frontend from frontend-dist/
 dev:
-    DOCKRU_STACKS_DIR=./stacks cargo watch -x run
+    DOCKRU_STACKS_DIR=./stacks DOCKRU_ENABLE_CONSOLE=true cargo watch -x run
 
 # Run both backend and frontend in development mode
 dev-all:

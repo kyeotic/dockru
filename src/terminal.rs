@@ -21,7 +21,7 @@ use once_cell::sync::Lazy;
 use portable_pty::{CommandBuilder, PtyPair, PtySize};
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, Write};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
@@ -55,6 +55,8 @@ pub struct Terminal {
 struct TerminalInner {
     /// PTY pair (master/slave)
     pty_pair: Option<PtyPair>,
+    /// PTY writer (kept alive to prevent stdin EOF)
+    pty_writer: Option<Box<dyn std::io::Write + Send>>,
     /// Output buffer (last 100 chunks)
     buffer: LimitQueue<String>,
     /// Number of rows
@@ -99,6 +101,7 @@ impl Terminal {
             io: io.clone(),
             inner: Arc::new(Mutex::new(TerminalInner {
                 pty_pair: None,
+                pty_writer: None,
                 buffer: LimitQueue::new(100),
                 rows: TERMINAL_ROWS,
                 cols: TERMINAL_COLS,
@@ -254,6 +257,7 @@ impl Terminal {
         let mut cmd = CommandBuilder::new(&file);
         cmd.args(&args);
         cmd.cwd(&cwd);
+        cmd.env("TERM", "xterm-256color");
 
         let mut child = pty_pair
             .slave
@@ -265,9 +269,13 @@ impl Terminal {
             self.name, file, args, cwd
         );
 
-        // Store PTY pair
+        // Get writer before storing PTY pair
+        let writer = pty_pair.master.take_writer()?;
+
+        // Store PTY pair and writer
         let mut inner = self.inner.lock().await;
         inner.pty_pair = Some(pty_pair);
+        inner.pty_writer = Some(writer);
         drop(inner);
 
         // Spawn reader task to monitor PTY output
@@ -323,20 +331,19 @@ impl Terminal {
         };
 
         tokio::task::spawn_blocking(move || {
-            let Some(reader) = reader_opt else {
+            let Some(mut reader) = reader_opt else {
                 return;
             };
             let rt = tokio::runtime::Handle::current();
 
-            let mut buf_reader = BufReader::new(reader);
-            let mut line = String::new();
+            let mut buffer = [0u8; 8192];
 
             loop {
-                match buf_reader.read_line(&mut line) {
+                match reader.read(&mut buffer) {
                     Ok(0) => break, // EOF
-                    Ok(_) => {
-                        let data = line.clone();
-                        line.clear();
+                    Ok(n) => {
+                        // Convert bytes to UTF-8 string (lossy to handle partial UTF-8 sequences)
+                        let data = String::from_utf8_lossy(&buffer[..n]).to_string();
 
                         // Broadcast to clients in async context
                         rt.block_on(async {
@@ -527,10 +534,14 @@ impl Terminal {
             anyhow::bail!("Cannot write to non-interactive terminal");
         }
 
-        let inner = self.inner.lock().await;
-        if let Some(ref pty_pair) = inner.pty_pair {
-            let mut writer = pty_pair.master.take_writer()?;
-            writer.write_all(input.as_bytes())?;
+        debug!("Writing to terminal {}: {:?} ({} bytes)", self.name, input, input.len());
+
+        // Convert \r to \n for Unix terminals
+        let normalized_input = input.replace('\r', "\n");
+
+        let mut inner = self.inner.lock().await;
+        if let Some(ref mut writer) = inner.pty_writer {
+            writer.write_all(normalized_input.as_bytes())?;
             writer.flush()?;
         }
 

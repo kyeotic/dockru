@@ -386,10 +386,11 @@ async fn handle_main_terminal(
 
         // Detect shell and start terminal
         let shell = detect_shell();
+        let args = get_shell_args(&shell);
         term.clone()
             .start(
                 shell.clone(),
-                vec![],
+                args,
                 ctx.config.stacks_dir.to_string_lossy().to_string(),
             )
             .await?;
@@ -522,6 +523,20 @@ fn detect_shell() -> String {
     #[cfg(windows)]
     {
         "powershell.exe".to_string()
+    }
+}
+
+/// Get shell arguments for interactive mode
+fn get_shell_args(shell: &str) -> Vec<String> {
+    // Check if it's bash or sh - they need -i flag for interactive mode
+    let shell_name = std::path::Path::new(shell)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or(shell);
+
+    match shell_name {
+        "bash" | "sh" | "zsh" => vec!["-i".to_string()],
+        _ => vec![],
     }
 }
 

@@ -114,6 +114,9 @@ futures-util = "0.3"
 semver = "1.0"
 redact = { version = "0.1.11", features = ["serde"] }
 
+# Docker run to compose conversion
+composerize-np = "0.2"
+
 [dev-dependencies]
 tempfile = "3.10"
 uuid = { version = "1.10", features = ["v4"] }
