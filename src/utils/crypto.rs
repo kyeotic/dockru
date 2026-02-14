@@ -10,6 +10,7 @@ use sha3::{Digest, Sha3_256};
 use std::time::Duration;
 use tokio::time::sleep as tokio_sleep;
 
+#[allow(dead_code)]
 const ALPHANUMERIC: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 /// Generate a cryptographically secure random alphanumeric string
@@ -19,6 +20,7 @@ const ALPHANUMERIC: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 ///
 /// # Returns
 /// A random string of the specified length
+#[allow(dead_code)]
 pub fn gen_secret(length: usize) -> String {
     let mut rng = rand::thread_rng();
     (0..length)
@@ -38,6 +40,7 @@ pub fn gen_secret(length: usize) -> String {
 ///
 /// # Returns
 /// A random number in the range [min, max]
+#[allow(dead_code)]
 fn get_crypto_random_int<R: Rng>(rng: &mut R, min: usize, max: usize) -> usize {
     rng.gen_range(min..=max)
 }
@@ -50,6 +53,7 @@ fn get_crypto_random_int<R: Rng>(rng: &mut R, min: usize, max: usize) -> usize {
 ///
 /// # Returns
 /// An integer in the range [0, length)
+#[allow(dead_code)]
 pub fn int_hash(s: &str, length: usize) -> usize {
     let mut hash: usize = 0;
     for ch in s.chars() {
@@ -62,6 +66,7 @@ pub fn int_hash(s: &str, length: usize) -> usize {
 ///
 /// # Arguments
 /// * `ms` - Number of milliseconds to sleep
+#[allow(dead_code)]
 pub async fn sleep(ms: u64) {
     tokio_sleep(Duration::from_millis(ms)).await;
 }

@@ -166,6 +166,7 @@ impl Terminal {
     }
 
     /// Get terminal name
+    #[allow(dead_code)]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -496,6 +497,7 @@ impl Terminal {
     }
 
     /// Close the terminal (send Ctrl+C)
+    #[allow(dead_code)]
     pub async fn close(&self) -> Result<()> {
         let mut inner = self.inner.lock().await;
 
@@ -627,6 +629,7 @@ impl Terminal {
     }
 
     /// Get count of active terminals
+    #[allow(dead_code)]
     pub async fn get_terminal_count() -> usize {
         let registry = TERMINAL_REGISTRY.read().await;
         registry.len()

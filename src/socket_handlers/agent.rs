@@ -22,6 +22,7 @@ struct AddAgentData {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct RemoveAgentData {
     url: String,
 }

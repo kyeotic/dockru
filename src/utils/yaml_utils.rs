@@ -1,4 +1,6 @@
 // YAML utilities with comment preservation
+#![allow(dead_code)]
+
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use yaml_rust2::{yaml::Hash, Yaml, YamlEmitter, YamlLoader};

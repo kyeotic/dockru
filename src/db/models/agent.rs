@@ -108,6 +108,7 @@ impl Agent {
     }
 
     /// Get all agents as a map keyed by endpoint
+    #[allow(dead_code)]
     pub async fn get_agent_list(
         pool: &SqlitePool,
         encryption_secret: &str,
@@ -156,6 +157,7 @@ impl Agent {
     }
 
     /// Update agent's URL
+    #[allow(dead_code)]
     pub async fn update_url(&mut self, pool: &SqlitePool, new_url: &str) -> Result<()> {
         // Validate URL can be parsed
         let _ = Url::parse(new_url).with_context(|| format!("Invalid agent URL: {}", new_url))?;
@@ -173,6 +175,7 @@ impl Agent {
     }
 
     /// Update agent's credentials (password is encrypted before storage)
+    #[allow(dead_code)]
     pub async fn update_credentials(
         &mut self,
         pool: &SqlitePool,
@@ -198,6 +201,7 @@ impl Agent {
     }
 
     /// Update agent's active status
+    #[allow(dead_code)]
     pub async fn update_active(&mut self, pool: &SqlitePool, active: bool) -> Result<()> {
         sqlx::query("UPDATE agent SET active = ? WHERE id = ?")
             .bind(active)

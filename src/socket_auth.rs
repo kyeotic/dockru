@@ -4,6 +4,8 @@
 // in Phase 7 when integrating with the full Socket.io handler system.
 // For now, these are stub implementations to satisfy Phase 4's auth foundation.
 
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use socketioxide::extract::SocketRef;

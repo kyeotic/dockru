@@ -48,6 +48,7 @@ impl User {
     }
 
     /// Get all users
+    #[allow(dead_code)]
     pub async fn find_all(pool: &SqlitePool) -> Result<Vec<Self>> {
         let users = sqlx::query_as::<_, User>("SELECT * FROM user")
             .fetch_all(pool)
@@ -116,6 +117,7 @@ impl User {
     }
 
     /// Reset user password by user ID (static version)
+    #[allow(dead_code)]
     pub async fn reset_password(pool: &SqlitePool, user_id: i64, new_password: &str) -> Result<()> {
         let hashed_password = crate::auth::hash_password(new_password)
             .context("Failed to hash new password")?;
@@ -131,6 +133,7 @@ impl User {
     }
 
     /// Update user's active status
+    #[allow(dead_code)]
     pub async fn update_active(&mut self, pool: &SqlitePool, active: bool) -> Result<()> {
         sqlx::query("UPDATE user SET active = ? WHERE id = ?")
             .bind(active)
@@ -145,6 +148,7 @@ impl User {
     }
 
     /// Update user's timezone
+    #[allow(dead_code)]
     pub async fn update_timezone(&mut self, pool: &SqlitePool, timezone: Option<&str>) -> Result<()> {
         sqlx::query("UPDATE user SET timezone = ? WHERE id = ?")
             .bind(timezone)
@@ -159,6 +163,7 @@ impl User {
     }
 
     /// Enable 2FA for user
+    #[allow(dead_code)]
     pub async fn enable_twofa(&mut self, pool: &SqlitePool, secret: &str) -> Result<()> {
         sqlx::query("UPDATE user SET twofa_secret = ?, twofa_status = ? WHERE id = ?")
             .bind(secret)
@@ -175,6 +180,7 @@ impl User {
     }
 
     /// Disable 2FA for user
+    #[allow(dead_code)]
     pub async fn disable_twofa(&mut self, pool: &SqlitePool) -> Result<()> {
         sqlx::query("UPDATE user SET twofa_secret = NULL, twofa_status = ?, twofa_last_token = NULL WHERE id = ?")
             .bind(false)
@@ -191,6 +197,7 @@ impl User {
     }
 
     /// Update the last used 2FA token
+    #[allow(dead_code)]
     pub async fn update_twofa_last_token(&mut self, pool: &SqlitePool, token: &str) -> Result<()> {
         sqlx::query("UPDATE user SET twofa_last_token = ? WHERE id = ?")
             .bind(token)
@@ -205,6 +212,7 @@ impl User {
     }
 
     /// Delete a user
+    #[allow(dead_code)]
     pub async fn delete(pool: &SqlitePool, user_id: i64) -> Result<()> {
         sqlx::query("DELETE FROM user WHERE id = ?")
             .bind(user_id)
@@ -218,6 +226,7 @@ impl User {
     /// Create a JWT token for this user
     ///
     /// Token contains username and shake256 hash of password for detecting password changes
+    #[allow(dead_code)]
     pub fn create_jwt(&self, password: &str, jwt_secret: &str) -> Result<String> {
         crate::auth::create_jwt(&self.username, password, jwt_secret)
             .context("Failed to create JWT for user")

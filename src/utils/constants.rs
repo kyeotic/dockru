@@ -15,6 +15,7 @@ pub const COMBINED_TERMINAL_COLS: u16 = 58;
 pub const COMBINED_TERMINAL_ROWS: u16 = 20;
 
 // Error types
+#[allow(dead_code)]
 pub const ERROR_TYPE_VALIDATION: i32 = 1;
 
 // Special endpoint marker
@@ -29,6 +30,7 @@ pub const ACCEPTED_COMPOSE_FILE_NAMES: &[&str] = &[
 ];
 
 /// Convert status code to status name
+#[allow(dead_code)]
 pub fn status_name(status: i32) -> &'static str {
     match status {
         CREATED_FILE => "draft",
@@ -40,6 +42,7 @@ pub fn status_name(status: i32) -> &'static str {
 }
 
 /// Convert status code to short status name
+#[allow(dead_code)]
 pub fn status_name_short(status: i32) -> &'static str {
     match status {
         CREATED_FILE => "inactive",
@@ -51,6 +54,7 @@ pub fn status_name_short(status: i32) -> &'static str {
 }
 
 /// Get color for status code
+#[allow(dead_code)]
 pub fn status_color(status: i32) -> &'static str {
     match status {
         CREATED_FILE => "dark",

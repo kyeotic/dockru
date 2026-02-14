@@ -130,6 +130,7 @@ impl SettingsCache {
     }
 
     /// Clear all cached values
+    #[allow(dead_code)]
     async fn clear(&self) {
         let mut cache = self.cache.write().await;
         cache.clear();
@@ -235,6 +236,7 @@ impl Setting {
     }
 
     /// Set multiple settings of a specific type
+    #[allow(dead_code)]
     pub async fn set_settings(
         pool: &SqlitePool,
         cache: &SettingsCache,
@@ -289,6 +291,7 @@ impl Setting {
     }
 
     /// Delete a setting by key
+    #[allow(dead_code)]
     pub async fn delete(pool: &SqlitePool, cache: &SettingsCache, key: &str) -> Result<()> {
         sqlx::query("DELETE FROM setting WHERE key = ?")
             .bind(key)

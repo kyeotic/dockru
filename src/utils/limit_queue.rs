@@ -28,6 +28,7 @@ impl<T> LimitQueue<T> {
     ///
     /// # Arguments
     /// * `callback` - Function to call with the removed item
+    #[allow(dead_code)]
     pub fn on_exceed(mut self, callback: fn(&T)) -> Self {
         self.on_exceed = Some(callback);
         self
@@ -52,6 +53,7 @@ impl<T> LimitQueue<T> {
     }
 
     /// Get the number of items in the queue
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.queue.len()
     }
@@ -67,21 +69,25 @@ impl<T> LimitQueue<T> {
     }
 
     /// Get a mutable iterator over the items in the queue
+    #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.queue.iter_mut()
     }
 
     /// Get a reference to an item at the specified index
+    #[allow(dead_code)]
     pub fn get(&self, index: usize) -> Option<&T> {
         self.queue.get(index)
     }
 
     /// Clear all items from the queue
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.queue.clear();
     }
 
     /// Get the limit of the queue
+    #[allow(dead_code)]
     pub fn limit(&self) -> usize {
         self.limit
     }

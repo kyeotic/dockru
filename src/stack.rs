@@ -149,6 +149,7 @@ impl Stack {
     }
 
     /// Get the full absolute path
+    #[allow(dead_code)]
     pub fn full_path(&self) -> PathBuf {
         let path = self.path();
         if path.is_absolute() {

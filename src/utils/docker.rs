@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// Parsed Docker port information
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct DockerPort {
     pub url: String,
     pub display: String,
@@ -28,6 +29,7 @@ pub struct DockerPort {
 ///
 /// # Returns
 /// A DockerPort struct with the URL and display string
+#[allow(dead_code)]
 pub fn parse_docker_port(input: &str, hostname: &str) -> DockerPort {
     let port: String;
     let display: String;

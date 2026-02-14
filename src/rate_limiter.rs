@@ -62,12 +62,14 @@ impl TwoFaRateLimiter {
 }
 
 /// Rate limiter for API requests (60 per minute)
+#[allow(dead_code)]
 pub struct ApiRateLimiter {
     limiter: Arc<GovernorRateLimiter<IpAddr, DefaultKeyedStateStore<IpAddr>, DefaultClock>>,
     error_message: String,
 }
 
 impl ApiRateLimiter {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         let quota = Quota::per_minute(NonZeroU32::new(60).unwrap());
         Self {
@@ -77,6 +79,7 @@ impl ApiRateLimiter {
     }
 
     /// Check if request should be allowed
+    #[allow(dead_code)]
     pub fn check(&self, ip: IpAddr) -> Result<(), String> {
         match self.limiter.check_key(&ip) {
             Ok(_) => Ok(()),
@@ -86,6 +89,7 @@ impl ApiRateLimiter {
 }
 
 /// Global rate limiters singleton
+#[allow(dead_code)]
 pub struct RateLimiters {
     pub login: LoginRateLimiter,
     pub two_fa: TwoFaRateLimiter,
@@ -93,6 +97,7 @@ pub struct RateLimiters {
 }
 
 impl RateLimiters {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             login: LoginRateLimiter::new(),

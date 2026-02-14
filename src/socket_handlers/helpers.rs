@@ -10,6 +10,7 @@ use tracing::debug;
 pub struct SocketState {
     pub user_id: Option<i64>,
     pub endpoint: String,
+    #[allow(dead_code)]
     pub ip_address: Option<String>,
 }
 
@@ -136,6 +137,7 @@ pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data
 }
 
 /// Handle callback with result
+#[allow(dead_code)]
 pub fn callback_result<T: serde::Serialize>(
     callback: Option<socketioxide::extract::AckSender>,
     result: Result<T>,

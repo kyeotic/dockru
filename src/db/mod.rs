@@ -118,6 +118,7 @@ impl Database {
     }
 
     /// Close the database connection gracefully
+    #[allow(dead_code)]
     pub async fn close(self) -> Result<()> {
         info!("Closing database connection");
 
@@ -134,6 +135,7 @@ impl Database {
     }
 
     /// Get the size of the database file in bytes (SQLite only)
+    #[allow(dead_code)]
     pub fn get_size(&self, data_dir: impl AsRef<Path>) -> Result<u64> {
         let db_path = data_dir.as_ref().join("dockru.db");
         let metadata =
@@ -142,6 +144,7 @@ impl Database {
     }
 
     /// Shrink the database by running VACUUM
+    #[allow(dead_code)]
     pub async fn shrink(&self) -> Result<()> {
         info!("Running VACUUM to shrink database");
         sqlx::query("VACUUM")

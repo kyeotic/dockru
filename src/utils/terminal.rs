@@ -32,6 +32,7 @@ pub fn get_combined_terminal_name(endpoint: &str, stack: &str) -> String {
 ///
 /// # Returns
 /// Terminal name in format "container-{endpoint}-{container}"
+#[allow(dead_code)]
 pub fn get_container_terminal_name(endpoint: &str, container: &str) -> String {
     format!("container-{}-{}", endpoint, container)
 }

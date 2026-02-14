@@ -3,10 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A flexible JSON object (equivalent to TypeScript's LooseObject)
+#[allow(dead_code)]
 pub type LooseObject = HashMap<String, serde_json::Value>;
 
 /// Standard API response structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct BaseRes {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -15,6 +17,7 @@ pub struct BaseRes {
 
 impl BaseRes {
     /// Create a successful response
+    #[allow(dead_code)]
     pub fn ok() -> Self {
         Self {
             ok: true,
@@ -23,6 +26,7 @@ impl BaseRes {
     }
 
     /// Create a successful response with a message
+    #[allow(dead_code)]
     pub fn ok_with_msg(msg: impl Into<String>) -> Self {
         Self {
             ok: true,
@@ -31,6 +35,7 @@ impl BaseRes {
     }
 
     /// Create an error response
+    #[allow(dead_code)]
     pub fn error(msg: impl Into<String>) -> Self {
         Self {
             ok: false,

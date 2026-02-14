@@ -17,7 +17,9 @@ use tracing::{debug, error, info, warn};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentStatus {
     Connecting,
+    #[allow(dead_code)]
     Online,
+    #[allow(dead_code)]
     Offline,
 }
 
@@ -35,6 +37,7 @@ impl AgentStatus {
 struct AgentClient {
     client: Client,
     logged_in: bool,
+    #[allow(dead_code)]
     endpoint: String,
 }
 

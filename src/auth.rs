@@ -50,6 +50,7 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
 ///
 /// # Returns
 /// `false` - we don't implement rehashing yet
+#[allow(dead_code)]
 pub fn need_rehash_password(_hash: &str) -> bool {
     false
 }

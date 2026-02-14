@@ -18,6 +18,7 @@ struct SetSettingsData {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ComposerizeData {
     command: String,
 }
