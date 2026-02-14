@@ -496,6 +496,32 @@ async fn disconnect_all_other_sockets(ctx: &ServerContext, user_id: i64, except_
     );
 }
 
+/// Initialize JWT secret in database if not exists
+/// Matches TypeScript initJWTSecret() behavior
+async fn init_jwt_secret(pool: &SqlitePool) -> Result<()> {
+    // Check if JWT secret already exists
+    let existing: Option<(String,)> =
+        sqlx::query_as("SELECT value FROM setting WHERE key = 'jwtSecret'")
+            .fetch_optional(pool)
+            .await?;
+
+    if existing.is_none() {
+        // Generate new secret: hash a random 64-char string
+        let secret = gen_secret(64);
+        let hashed_secret = hash_password(&secret)?;
+
+        // Store in database
+        sqlx::query("INSERT INTO setting (key, value, type) VALUES ('jwtSecret', ?1, NULL)")
+            .bind(&hashed_secret)
+            .execute(pool)
+            .await?;
+
+        info!("Generated and stored new JWT secret");
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -523,30 +549,4 @@ mod tests {
         assert_eq!(data.current_password, "old123");
         assert_eq!(data.new_password, "new123");
     }
-}
-
-/// Initialize JWT secret in database if not exists
-/// Matches TypeScript initJWTSecret() behavior
-async fn init_jwt_secret(pool: &SqlitePool) -> Result<()> {
-    // Check if JWT secret already exists
-    let existing: Option<(String,)> =
-        sqlx::query_as("SELECT value FROM setting WHERE key = 'jwtSecret'")
-            .fetch_optional(pool)
-            .await?;
-
-    if existing.is_none() {
-        // Generate new secret: hash a random 64-char string
-        let secret = gen_secret(64);
-        let hashed_secret = hash_password(&secret)?;
-
-        // Store in database
-        sqlx::query("INSERT INTO setting (key, value, type) VALUES ('jwtSecret', ?1, NULL)")
-            .bind(&hashed_secret)
-            .execute(pool)
-            .await?;
-
-        info!("Generated and stored new JWT secret");
-    }
-
-    Ok(())
 }

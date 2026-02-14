@@ -72,8 +72,7 @@ impl User {
     pub async fn create(pool: &SqlitePool, new_user: NewUser) -> Result<Self> {
         // Hash password if provided
         let hashed_password = if let Some(ref password) = new_user.password {
-            Some(crate::auth::hash_password(password)
-                .context("Failed to hash password")?)
+            Some(crate::auth::hash_password(password).context("Failed to hash password")?)
         } else {
             None
         };
@@ -101,8 +100,8 @@ impl User {
     ///
     /// Hashes password with bcrypt before storing
     pub async fn update_password(&mut self, pool: &SqlitePool, new_password: &str) -> Result<()> {
-        let hashed_password = crate::auth::hash_password(new_password)
-            .context("Failed to hash new password")?;
+        let hashed_password =
+            crate::auth::hash_password(new_password).context("Failed to hash new password")?;
 
         sqlx::query("UPDATE user SET password = ? WHERE id = ?")
             .bind(&hashed_password)
@@ -119,8 +118,8 @@ impl User {
     /// Reset user password by user ID (static version)
     #[allow(dead_code)]
     pub async fn reset_password(pool: &SqlitePool, user_id: i64, new_password: &str) -> Result<()> {
-        let hashed_password = crate::auth::hash_password(new_password)
-            .context("Failed to hash new password")?;
+        let hashed_password =
+            crate::auth::hash_password(new_password).context("Failed to hash new password")?;
 
         sqlx::query("UPDATE user SET password = ? WHERE id = ?")
             .bind(&hashed_password)
@@ -149,7 +148,11 @@ impl User {
 
     /// Update user's timezone
     #[allow(dead_code)]
-    pub async fn update_timezone(&mut self, pool: &SqlitePool, timezone: Option<&str>) -> Result<()> {
+    pub async fn update_timezone(
+        &mut self,
+        pool: &SqlitePool,
+        timezone: Option<&str>,
+    ) -> Result<()> {
         sqlx::query("UPDATE user SET timezone = ? WHERE id = ?")
             .bind(timezone)
             .bind(self.id)
@@ -236,19 +239,20 @@ impl User {
     ///
     /// Uses bcrypt verification
     pub fn verify_password(&self, password: &str) -> Result<bool> {
-        let hash = self.password.as_ref()
+        let hash = self
+            .password
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("User has no password"))?;
-        
-        crate::auth::verify_password(password, hash)
-            .context("Failed to verify password")
+
+        crate::auth::verify_password(password, hash).context("Failed to verify password")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use crate::db::Database;
+    use tempfile::TempDir;
 
     async fn setup_test_db() -> (Database, TempDir) {
         let temp_dir = TempDir::new().unwrap();
@@ -272,7 +276,7 @@ mod tests {
         let user = User::create(pool, new_user).await.unwrap();
 
         assert_eq!(user.username, "testuser");
-        assert_eq!(user.active, true);
+        assert!(user.active);
         assert_eq!(user.timezone, Some("UTC".to_string()));
 
         // Find by ID
@@ -280,7 +284,10 @@ mod tests {
         assert_eq!(found_user.username, "testuser");
 
         // Find by username
-        let found_user = User::find_by_username(pool, "testuser").await.unwrap().unwrap();
+        let found_user = User::find_by_username(pool, "testuser")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(found_user.id, user.id);
     }
 
@@ -318,15 +325,15 @@ mod tests {
         };
 
         let mut user = User::create(pool, new_user).await.unwrap();
-        
+
         // Password should be hashed, not plaintext
         assert_ne!(user.password.as_ref().unwrap(), "oldpass");
         assert!(user.password.as_ref().unwrap().starts_with("$2"));
-        
+
         user.update_password(pool, "newpass").await.unwrap();
 
         let found_user = User::find_by_id(pool, user.id).await.unwrap().unwrap();
-        
+
         // New password should also be hashed
         assert_ne!(found_user.password.as_ref().unwrap(), "newpass");
         assert!(found_user.password.as_ref().unwrap().starts_with("$2"));

@@ -544,7 +544,7 @@ impl AgentManager {
         }
 
         for agent in agents {
-            self.connect(&agent.url, &agent.username, &agent.password.expose_secret()).await;
+            self.connect(&agent.url, &agent.username, agent.password.expose_secret()).await;
         }
     }
 
