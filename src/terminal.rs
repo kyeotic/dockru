@@ -398,12 +398,12 @@ impl Terminal {
                     // Get current namespace sockets
                     // Check if any sockets are in this terminal's room
                     // If the room is empty for 60 seconds, close the terminal
-                    
+
                     // Limitation: socketioxide doesn't provide room.sockets() or adapter.rooms
                     // The keep-alive would ideally check if the room is empty and call terminal.close()
                     // For now, terminals will stay alive until explicitly closed or process exits
                     debug!("Terminal {} keep-alive check (room member counting not available in socketioxide 0.14)", name);
-                    
+
                     // Workaround: Try to get socket count from io adapter
                     // This may be added in future socketioxide versions
                 }
@@ -667,7 +667,7 @@ mod tests {
         let name = format!("test-registry-{}", uuid::Uuid::new_v4());
 
         // Create terminal
-        let terminal = Terminal::new(
+        let _terminal = Terminal::new(
             io.clone(),
             name.clone(),
             TerminalType::Base,

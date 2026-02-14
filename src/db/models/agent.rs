@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use redact::Secret;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -6,14 +7,24 @@ use url::Url;
 
 use crate::utils::crypto::{decrypt_password, encrypt_password, is_password_encrypted};
 
-/// Agent model representing a remote Dockru instance
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+/// Database row for agent (with encrypted password)
+#[derive(Debug, Clone, sqlx::FromRow, Deserialize)]
+struct AgentRow {
+    pub id: i64,
+    pub url: String,
+    pub username: String,
+    pub password: String, // Encrypted in DB
+    pub active: bool,
+}
+
+/// Agent model representing a remote Dockru instance (application type with decrypted password)
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: i64,
     pub url: String,
     pub username: String,
     #[serde(skip_serializing)] // Don't expose password in JSON
-    pub password: String,
+    pub password: Secret<String>, // Plaintext in memory
     pub active: bool,
 }
 
@@ -26,17 +37,28 @@ pub struct NewAgent {
     pub active: bool,
 }
 
-impl Agent {
-    /// Decrypt the agent's password in-place using the provided encryption secret.
-    /// If the password is not encrypted (legacy plaintext), it is left as-is.
-    fn decrypt_password_in_place(&mut self, encryption_secret: &str) -> Result<()> {
-        if is_password_encrypted(&self.password) {
-            self.password = decrypt_password(&self.password, encryption_secret)
-                .context("Failed to decrypt agent password")?;
-        }
-        Ok(())
-    }
+impl AgentRow {
+    /// Convert database row to application Agent, decrypting the password
+    fn into_agent(self, encryption_secret: &Secret<String>) -> Result<Agent> {
+        let password_str = if is_password_encrypted(&self.password) {
+            decrypt_password(&self.password, encryption_secret)
+                .context("Failed to decrypt agent password")?
+        } else {
+            // Legacy plaintext password
+            Secret::new(self.password)
+        };
 
+        Ok(Agent {
+            id: self.id,
+            url: self.url,
+            username: self.username,
+            password: password_str,
+            active: self.active,
+        })
+    }
+}
+
+impl Agent {
     /// Extract the endpoint (host:port) from the agent's URL
     ///
     /// Example: "https://example.com:5001" -> "example.com:5001"
@@ -59,59 +81,52 @@ impl Agent {
     pub async fn find_by_id(
         pool: &SqlitePool,
         id: i64,
-        encryption_secret: &str,
+        encryption_secret: &Secret<String>,
     ) -> Result<Option<Self>> {
-        let mut agent = sqlx::query_as::<_, Agent>("SELECT * FROM agent WHERE id = ?")
+        let row = sqlx::query_as::<_, AgentRow>("SELECT * FROM agent WHERE id = ?")
             .bind(id)
             .fetch_optional(pool)
             .await
             .context("Failed to query agent by id")?;
 
-        if let Some(ref mut a) = agent {
-            a.decrypt_password_in_place(encryption_secret)?;
-        }
-
-        Ok(agent)
+        row.map(|r| r.into_agent(encryption_secret)).transpose()
     }
 
     /// Find an agent by URL
     pub async fn find_by_url(
         pool: &SqlitePool,
         url: &str,
-        encryption_secret: &str,
+        encryption_secret: &Secret<String>,
     ) -> Result<Option<Self>> {
-        let mut agent = sqlx::query_as::<_, Agent>("SELECT * FROM agent WHERE url = ?")
+        let row = sqlx::query_as::<_, AgentRow>("SELECT * FROM agent WHERE url = ?")
             .bind(url)
             .fetch_optional(pool)
             .await
             .context("Failed to query agent by url")?;
 
-        if let Some(ref mut a) = agent {
-            a.decrypt_password_in_place(encryption_secret)?;
-        }
-
-        Ok(agent)
+        row.map(|r| r.into_agent(encryption_secret)).transpose()
     }
 
     /// Get all agents
-    pub async fn find_all(pool: &SqlitePool, encryption_secret: &str) -> Result<Vec<Self>> {
-        let mut agents = sqlx::query_as::<_, Agent>("SELECT * FROM agent")
+    pub async fn find_all(
+        pool: &SqlitePool,
+        encryption_secret: &Secret<String>,
+    ) -> Result<Vec<Self>> {
+        let rows = sqlx::query_as::<_, AgentRow>("SELECT * FROM agent")
             .fetch_all(pool)
             .await
             .context("Failed to query all agents")?;
 
-        for agent in &mut agents {
-            agent.decrypt_password_in_place(encryption_secret)?;
-        }
-
-        Ok(agents)
+        rows.into_iter()
+            .map(|r| r.into_agent(encryption_secret))
+            .collect()
     }
 
     /// Get all agents as a map keyed by endpoint
     #[allow(dead_code)]
     pub async fn get_agent_list(
         pool: &SqlitePool,
-        encryption_secret: &str,
+        encryption_secret: &Secret<String>,
     ) -> Result<HashMap<String, Agent>> {
         let agents = Self::find_all(pool, encryption_secret).await?;
 
@@ -129,15 +144,16 @@ impl Agent {
     pub async fn create(
         pool: &SqlitePool,
         new_agent: NewAgent,
-        encryption_secret: &str,
+        encryption_secret: &Secret<String>,
     ) -> Result<Self> {
         // Validate URL can be parsed
         let _ = Url::parse(&new_agent.url)
             .with_context(|| format!("Invalid agent URL: {}", new_agent.url))?;
 
         // Encrypt the password before storing
-        let encrypted_password = encrypt_password(&new_agent.password, encryption_secret)
-            .context("Failed to encrypt agent password")?;
+        let encrypted_password =
+            encrypt_password(&Secret::new(new_agent.password), encryption_secret)
+                .context("Failed to encrypt agent password")?;
 
         let result =
             sqlx::query("INSERT INTO agent (url, username, password, active) VALUES (?, ?, ?, ?)")
@@ -181,10 +197,11 @@ impl Agent {
         pool: &SqlitePool,
         username: &str,
         password: &str,
-        encryption_secret: &str,
+        encryption_secret: &Secret<String>,
     ) -> Result<()> {
-        let encrypted_password = encrypt_password(password, encryption_secret)
-            .context("Failed to encrypt agent password")?;
+        let encrypted_password =
+            encrypt_password(&Secret::new(password.to_string()), encryption_secret)
+                .context("Failed to encrypt agent password")?;
 
         sqlx::query("UPDATE agent SET username = ?, password = ? WHERE id = ?")
             .bind(username)
@@ -195,7 +212,7 @@ impl Agent {
             .context("Failed to update agent credentials")?;
 
         self.username = username.to_string();
-        self.password = password.to_string(); // In-memory stays plaintext
+        self.password = Secret::new(password.to_string()); // In-memory stays plaintext
 
         Ok(())
     }
@@ -230,29 +247,30 @@ impl Agent {
     /// Call this once at startup to handle upgrades from older versions.
     pub async fn migrate_plaintext_passwords(
         pool: &SqlitePool,
-        encryption_secret: &str,
+        encryption_secret: &Secret<String>,
     ) -> Result<u32> {
-        // Load raw agents without decrypting
-        let agents = sqlx::query_as::<_, Agent>("SELECT * FROM agent")
+        // Load raw agent rows without decrypting
+        let rows = sqlx::query_as::<_, AgentRow>("SELECT * FROM agent")
             .fetch_all(pool)
             .await
             .context("Failed to query agents for password migration")?;
 
         let mut migrated = 0u32;
-        for agent in &agents {
-            if !is_password_encrypted(&agent.password) {
+        for row in &rows {
+            if !is_password_encrypted(&row.password) {
                 let encrypted =
-                    encrypt_password(&agent.password, encryption_secret).with_context(|| {
-                        format!("Failed to encrypt password for agent {}", agent.id)
-                    })?;
+                    encrypt_password(&Secret::new(row.password.clone()), encryption_secret)
+                        .with_context(|| {
+                            format!("Failed to encrypt password for agent {}", row.id)
+                        })?;
 
                 sqlx::query("UPDATE agent SET password = ? WHERE id = ?")
                     .bind(&encrypted)
-                    .bind(agent.id)
+                    .bind(row.id)
                     .execute(pool)
                     .await
                     .with_context(|| {
-                        format!("Failed to update encrypted password for agent {}", agent.id)
+                        format!("Failed to update encrypted password for agent {}", row.id)
                     })?;
 
                 migrated += 1;
@@ -278,7 +296,9 @@ mod tests {
     use crate::db::Database;
     use tempfile::TempDir;
 
-    const TEST_SECRET: &str = "test_encryption_secret_for_agents";
+    fn test_secret() -> Secret<String> {
+        Secret::new("test_encryption_secret_for_agents".to_string())
+    }
 
     async fn setup_test_db() -> (Database, TempDir) {
         let temp_dir = TempDir::new().unwrap();
@@ -299,29 +319,31 @@ mod tests {
             active: true,
         };
 
-        let agent = Agent::create(pool, new_agent, TEST_SECRET).await.unwrap();
+        let agent = Agent::create(pool, new_agent, &test_secret())
+            .await
+            .unwrap();
 
         assert_eq!(agent.url, "https://example.com:5001");
         assert_eq!(agent.username, "admin");
         // Password should be decrypted back to plaintext in memory
-        assert_eq!(agent.password, "secret");
+        assert_eq!(agent.password.expose_secret(), "secret");
         assert!(agent.active);
 
         // Find by ID
-        let found = Agent::find_by_id(pool, agent.id, TEST_SECRET)
+        let found = Agent::find_by_id(pool, agent.id, &test_secret())
             .await
             .unwrap()
             .unwrap();
         assert_eq!(found.url, agent.url);
-        assert_eq!(found.password, "secret");
+        assert_eq!(found.password.expose_secret(), "secret");
 
         // Find by URL
-        let found = Agent::find_by_url(pool, "https://example.com:5001", TEST_SECRET)
+        let found = Agent::find_by_url(pool, "https://example.com:5001", &test_secret())
             .await
             .unwrap()
             .unwrap();
         assert_eq!(found.id, agent.id);
-        assert_eq!(found.password, "secret");
+        assert_eq!(found.password.expose_secret(), "secret");
     }
 
     #[tokio::test]
@@ -336,7 +358,9 @@ mod tests {
             active: true,
         };
 
-        let agent = Agent::create(pool, new_agent, TEST_SECRET).await.unwrap();
+        let agent = Agent::create(pool, new_agent, &test_secret())
+            .await
+            .unwrap();
 
         // Read the raw value from DB — should be encrypted, not plaintext
         let row: (String,) = sqlx::query_as("SELECT password FROM agent WHERE id = ?")
@@ -369,7 +393,7 @@ mod tests {
                 password: "pass".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -385,7 +409,7 @@ mod tests {
                 password: "pass".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -401,7 +425,7 @@ mod tests {
                 password: "pass".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -422,7 +446,7 @@ mod tests {
                 password: "pass1".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -435,12 +459,12 @@ mod tests {
                 password: "pass2".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
 
-        let agent_list = Agent::get_agent_list(pool, TEST_SECRET).await.unwrap();
+        let agent_list = Agent::get_agent_list(pool, &test_secret()).await.unwrap();
 
         assert_eq!(agent_list.len(), 2);
         assert!(agent_list.contains_key("agent1.com:5001"));
@@ -460,7 +484,7 @@ mod tests {
                 password: "oldpass".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -474,11 +498,11 @@ mod tests {
 
         // Update credentials
         agent
-            .update_credentials(pool, "newuser", "newpass", TEST_SECRET)
+            .update_credentials(pool, "newuser", "newpass", &test_secret())
             .await
             .unwrap();
         assert_eq!(agent.username, "newuser");
-        assert_eq!(agent.password, "newpass");
+        assert_eq!(agent.password.expose_secret(), "newpass");
 
         // Verify the updated password is stored encrypted in DB
         let row: (String,) = sqlx::query_as("SELECT password FROM agent WHERE id = ?")
@@ -506,7 +530,7 @@ mod tests {
                 password: "secret".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -533,7 +557,7 @@ mod tests {
                 password: "pass".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await;
 
@@ -553,7 +577,7 @@ mod tests {
                 password: "pass".to_string(),
                 active: true,
             },
-            TEST_SECRET,
+            &test_secret(),
         )
         .await
         .unwrap();
@@ -562,7 +586,7 @@ mod tests {
 
         Agent::delete(pool, agent_id).await.unwrap();
 
-        let found = Agent::find_by_id(pool, agent_id, TEST_SECRET)
+        let found = Agent::find_by_id(pool, agent_id, &test_secret())
             .await
             .unwrap();
         assert!(found.is_none());
@@ -593,21 +617,21 @@ mod tests {
             .unwrap();
 
         // Run migration
-        let migrated = Agent::migrate_plaintext_passwords(pool, TEST_SECRET)
+        let migrated = Agent::migrate_plaintext_passwords(pool, &test_secret())
             .await
             .unwrap();
         assert_eq!(migrated, 2);
 
         // Running again should migrate 0 (already encrypted)
-        let migrated = Agent::migrate_plaintext_passwords(pool, TEST_SECRET)
+        let migrated = Agent::migrate_plaintext_passwords(pool, &test_secret())
             .await
             .unwrap();
         assert_eq!(migrated, 0);
 
         // Verify passwords are decrypted correctly
-        let agents = Agent::find_all(pool, TEST_SECRET).await.unwrap();
+        let agents = Agent::find_all(pool, &test_secret()).await.unwrap();
         assert_eq!(agents.len(), 2);
-        assert_eq!(agents[0].password, "plaintext_pass_1");
-        assert_eq!(agents[1].password, "plaintext_pass_2");
+        assert_eq!(agents[0].password.expose_secret(), "plaintext_pass_1");
+        assert_eq!(agents[1].password.expose_secret(), "plaintext_pass_2");
     }
 }

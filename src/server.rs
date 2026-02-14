@@ -312,7 +312,8 @@ pub async fn serve(config: Config) -> Result<()> {
 
             // Migrate any existing plaintext agent passwords to encrypted form
             use crate::db::models::agent::Agent;
-            match Agent::migrate_plaintext_passwords(db.pool(), &secret).await {
+            use redact::Secret;
+            match Agent::migrate_plaintext_passwords(db.pool(), &Secret::new(secret)).await {
                 Ok(0) => {}
                 Ok(n) => info!("Migrated {} agent password(s) to encrypted storage", n),
                 Err(e) => error!("Failed to migrate agent passwords: {}", e),

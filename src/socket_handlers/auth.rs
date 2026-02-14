@@ -6,8 +6,8 @@ use crate::socket_handlers::{
     broadcast_to_authenticated, callback_error, callback_ok, check_login, error_response,
     error_response_i18n, set_endpoint, set_user_id,
 };
+use crate::utils::crypto::gen_secret;
 use anyhow::{anyhow, Result};
-use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
 use socketioxide::extract::{AckSender, Data, SocketRef};
@@ -523,18 +523,6 @@ mod tests {
         assert_eq!(data.current_password, "old123");
         assert_eq!(data.new_password, "new123");
     }
-}
-
-/// Generate a random alphanumeric secret (like TypeScript genSecret)
-fn gen_secret(length: usize) -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = rand::thread_rng();
-    (0..length)
-        .map(|_| {
-            let idx = rng.gen_range(0..CHARSET.len());
-            CHARSET[idx] as char
-        })
-        .collect()
 }
 
 /// Initialize JWT secret in database if not exists

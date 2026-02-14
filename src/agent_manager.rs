@@ -2,6 +2,7 @@ use crate::db::models::agent::Agent;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use futures_util::future::FutureExt;
+use redact::Secret;
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
 use serde_json::{json, Value};
@@ -48,7 +49,7 @@ pub struct AgentManager {
     socket_id: String,
     socket: SocketRef,
     db: SqlitePool,
-    encryption_secret: String,
+    encryption_secret: Secret<String>,
     agent_clients: Arc<RwLock<HashMap<String, AgentClient>>>,
     first_connect_time: Arc<RwLock<DateTime<Utc>>>,
 }
@@ -63,7 +64,7 @@ impl AgentManager {
             socket_id,
             socket,
             db,
-            encryption_secret,
+            encryption_secret: Secret::new(encryption_secret),
             agent_clients: Arc::new(RwLock::new(HashMap::new())),
             first_connect_time: Arc::new(RwLock::new(Utc::now())),
         }
@@ -543,7 +544,7 @@ impl AgentManager {
         }
 
         for agent in agents {
-            self.connect(&agent.url, &agent.username, &agent.password).await;
+            self.connect(&agent.url, &agent.username, &agent.password.expose_secret()).await;
         }
     }
 
