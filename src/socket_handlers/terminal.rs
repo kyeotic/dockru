@@ -1,5 +1,5 @@
 use crate::server::ServerContext;
-use crate::socket_handlers::{callback_error, callback_ok, check_login, get_endpoint};
+use crate::socket_handlers::{callback_error, check_login, get_endpoint};
 use crate::stack::Stack;
 use crate::terminal::{Terminal, TerminalType};
 use anyhow::{anyhow, Result};

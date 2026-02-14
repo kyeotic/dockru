@@ -1,7 +1,7 @@
 use crate::agent_manager;
 use crate::server::ServerContext;
 use crate::socket_handlers::{
-    callback_error, check_login, error_response_i18n, get_endpoint, ok_response,
+    callback_error, check_login, get_endpoint, ok_response,
 };
 use crate::utils::ALL_ENDPOINTS;
 use anyhow::anyhow;
@@ -84,7 +84,7 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 
 async fn handle_add_agent(
     socket: &SocketRef,
-    ctx: &ServerContext,
+    _ctx: &ServerContext,
     data: AddAgentData,
 ) -> Result<serde_json::Value, anyhow::Error> {
     check_login(socket)?;

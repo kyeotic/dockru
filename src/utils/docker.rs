@@ -29,8 +29,8 @@ pub struct DockerPort {
 /// # Returns
 /// A DockerPort struct with the URL and display string
 pub fn parse_docker_port(input: &str, hostname: &str) -> DockerPort {
-    let mut port: String;
-    let mut display: String;
+    let port: String;
+    let display: String;
     let mut protocol = String::from("tcp");
     let mut host = hostname.to_string();
 

@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use futures_util::future::FutureExt;
 use rust_socketio::asynchronous::{Client, ClientBuilder};
-use rust_socketio::{Event, Payload};
+use rust_socketio::Payload;
 use serde_json::{json, Value};
 use socketioxide::extract::SocketRef;
 use sqlx::SqlitePool;
@@ -144,15 +144,12 @@ impl AgentManager {
                         move |payload: Payload, _socket: Client| {
                             let login_tx = login_tx.clone();
                             async move {
-                                match payload {
-                                    Payload::Text(values) => {
-                                        if let Some(obj) = values.first() {
-                                            if let Some(lock) = login_tx.lock().await.take() {
-                                                lock.send(obj.clone()).ok();
-                                            }
+                                if let Payload::Text(values) = payload {
+                                    if let Some(obj) = values.first() {
+                                        if let Some(lock) = login_tx.lock().await.take() {
+                                            lock.send(obj.clone()).ok();
                                         }
                                     }
-                                    _ => {}
                                 }
                             }
                             .boxed()
@@ -374,11 +371,10 @@ impl AgentManager {
                             let agent_clients = agent_clients.clone();
 
                             async move {
-                                match payload {
-                                    Payload::Text(values) => {
-                                        if let Some(obj) = values.first() {
-                                            if let Some(ok) = obj.get("ok").and_then(|v| v.as_bool()) {
-                                                if ok {
+                                if let Payload::Text(values) = payload {
+                                    if let Some(obj) = values.first() {
+                                        if let Some(ok) = obj.get("ok").and_then(|v| v.as_bool()) {
+                                            if ok {
                                                     info!("Logged in to socket server: {}", endpoint);
                                                     
                                                     // Update logged_in status
@@ -404,11 +400,9 @@ impl AgentManager {
                                             }
                                         }
                                     }
-                                    _ => {}
                                 }
-                            }
                             .boxed()
-                        },
+                        }
                     ).await {
                         error!("Failed to emit login to {}: {}", endpoint_for_error, e);
                     }
@@ -443,11 +437,8 @@ impl AgentManager {
                 let socket_ref = socket_ref_for_agent.clone();
                 async move {
                     // Forward agent events to the main socket
-                    match payload {
-                        Payload::Text(values) => {
-                            socket_ref.emit("agent", values).ok();
-                        }
-                        _ => {}
+                    if let Payload::Text(values) = payload {
+                        socket_ref.emit("agent", values).ok();
                     }
                 }
                 .boxed()
@@ -456,34 +447,31 @@ impl AgentManager {
                 let socket_ref = socket_ref_for_info.clone();
                 let endpoint = endpoint_for_info.clone();
                 async move {
-                    match payload {
-                        Payload::Text(values) => {
-                            if let Some(info) = values.first() {
-                                debug!("Agent info from {}: {:?}", endpoint, info);
+                    if let Payload::Text(values) = payload {
+                        if let Some(info) = values.first() {
+                            debug!("Agent info from {}: {:?}", endpoint, info);
 
-                                // Check version compatibility (>= 1.4.0)
-                                if let Some(version_str) = info.get("version").and_then(|v| v.as_str()) {
-                                    match semver::Version::parse(version_str) {
-                                        Ok(version) => {
-                                            let min_version = semver::Version::new(1, 4, 0);
-                                            if version < min_version {
-                                                warn!("Agent {} has unsupported version: {}", endpoint, version_str);
-                                                socket_ref.emit("agentStatus", json!({
-                                                    "endpoint": endpoint,
-                                                    "status": "offline",
-                                                    "msg": format!("{}: Unsupported version: {}", endpoint, version_str),
-                                                })).ok();
-                                                socket.disconnect().await.ok();
-                                            }
+                            // Check version compatibility (>= 1.4.0)
+                            if let Some(version_str) = info.get("version").and_then(|v| v.as_str()) {
+                                match semver::Version::parse(version_str) {
+                                    Ok(version) => {
+                                        let min_version = semver::Version::new(1, 4, 0);
+                                        if version < min_version {
+                                            warn!("Agent {} has unsupported version: {}", endpoint, version_str);
+                                            socket_ref.emit("agentStatus", json!({
+                                                "endpoint": endpoint,
+                                                "status": "offline",
+                                                "msg": format!("{}: Unsupported version: {}", endpoint, version_str),
+                                            })).ok();
+                                            socket.disconnect().await.ok();
                                         }
-                                        Err(e) => {
-                                            warn!("Failed to parse version {} from {}: {}", version_str, endpoint, e);
-                                        }
+                                    }
+                                    Err(e) => {
+                                        warn!("Failed to parse version {} from {}: {}", version_str, endpoint, e);
                                     }
                                 }
                             }
                         }
-                        _ => {}
                     }
                 }
                 .boxed()
@@ -581,7 +569,7 @@ impl AgentManager {
             clients.get(endpoint).map(|c| c.client.clone())
         };
 
-        let mut client = client.ok_or_else(|| {
+            let client = client.ok_or_else(|| {
             error!("Socket client not found for endpoint: {}", endpoint);
             anyhow!("Socket client not found for endpoint: {}", endpoint)
         })?;
@@ -727,8 +715,11 @@ impl Drop for AgentManager {
     }
 }
 
+/// Type alias for the global agent manager registry
+type AgentManagerRegistry = Arc<RwLock<HashMap<String, Arc<AgentManager>>>>;
+
 /// Global registry of AgentManagers by socket ID
-static AGENT_MANAGERS: once_cell::sync::Lazy<Arc<RwLock<HashMap<String, Arc<AgentManager>>>>> =
+static AGENT_MANAGERS: once_cell::sync::Lazy<AgentManagerRegistry> =
     once_cell::sync::Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Store an AgentManager for a socket

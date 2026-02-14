@@ -670,7 +670,7 @@ async fn handle_get_docker_network_list(
 
     // Run docker network ls command
     let output = tokio::process::Command::new("docker")
-        .args(&["network", "ls", "--format", "{{.Name}}"])
+        .args(["network", "ls", "--format", "{{.Name}}"])
         .output()
         .await?;
 
@@ -712,7 +712,7 @@ async fn broadcast_stack_list(ctx: &ServerContext) {
             });
 
             // Broadcast wrapped in "agent" protocol
-            ctx.io.emit("agent", &("stackList", &response)).ok();
+            ctx.io.emit("agent", ("stackList", &response)).ok();
         }
         Err(e) => {
             debug!("Failed to get stack list for broadcast: {}", e);

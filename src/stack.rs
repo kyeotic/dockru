@@ -11,7 +11,7 @@ use crate::server::ServerContext;
 use crate::terminal::Terminal;
 use crate::utils::constants::{
     ACCEPTED_COMPOSE_FILE_NAMES, COMBINED_TERMINAL_COLS, COMBINED_TERMINAL_ROWS, CREATED_FILE,
-    CREATED_STACK, EXITED, PROGRESS_TERMINAL_ROWS, RUNNING, TERMINAL_ROWS, UNKNOWN,
+    CREATED_STACK, EXITED, RUNNING, TERMINAL_ROWS, UNKNOWN,
 };
 use crate::utils::terminal::{get_combined_terminal_name, get_compose_terminal_name};
 use anyhow::{Context, Result};
@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::process::Command;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 use yaml_rust2::YamlLoader;
 
 /// Represents a Docker Compose stack
@@ -303,6 +303,7 @@ impl Stack {
     }
 
     /// Convert to full JSON representation
+    #[allow(clippy::wrong_self_convention)]
     pub async fn to_json(&mut self) -> Result<StackJson> {
         let compose_yaml = self.compose_yaml().await?;
         let compose_env = self.compose_env().await?;
@@ -361,10 +362,8 @@ impl Stack {
             fs::create_dir_all(&dir)
                 .await
                 .context("Failed to create stack directory")?;
-        } else {
-            if fs::metadata(&dir).await.is_err() {
-                anyhow::bail!("Stack not found");
-            }
+        } else if fs::metadata(&dir).await.is_err() {
+            anyhow::bail!("Stack not found");
         }
 
         // Write compose file
@@ -394,7 +393,6 @@ impl Stack {
     pub async fn deploy(&self, socket: Option<SocketRef>) -> Result<i32> {
         let terminal_name = get_compose_terminal_name(&self.endpoint, &self.name);
         let options = self.get_compose_options("up", &["-d", "--remove-orphans"]);
-        let options_refs: Vec<&str> = options.iter().map(|s| s.as_str()).collect();
 
         let exit_code = Terminal::exec(
             self.ctx.io.clone(),
@@ -495,7 +493,7 @@ impl Stack {
 
         let exit_code = Terminal::exec(
             self.ctx.io.clone(),
-            socket.as_ref().map(|s| s.clone()),
+            socket.clone(),
             terminal_name.clone(),
             "docker".to_string(),
             options,
@@ -588,7 +586,7 @@ impl Stack {
 
         let output = Command::new("docker")
             .args(&options)
-            .current_dir(&self.path())
+            .current_dir(self.path())
             .output()
             .await
             .context("Failed to run docker compose ps")?;
@@ -747,11 +745,11 @@ impl Stack {
     }
 
     /// Get the status list from docker compose ls
-    pub async fn get_status_list(ctx: Arc<ServerContext>) -> Result<HashMap<String, i32>> {
+    pub async fn get_status_list(_ctx: Arc<ServerContext>) -> Result<HashMap<String, i32>> {
         let mut status_list = HashMap::new();
 
         let output = Command::new("docker")
-            .args(&["compose", "ls", "--all", "--format", "json"])
+            .args(["compose", "ls", "--all", "--format", "json"])
             .output()
             .await
             .context("Failed to run docker compose ls")?;
@@ -813,7 +811,7 @@ impl Stack {
     pub async fn get_stack_list(
         ctx: Arc<ServerContext>,
         endpoint: String,
-        use_cache_for_managed: bool,
+        _use_cache_for_managed: bool,
     ) -> Result<HashMap<String, Stack>> {
         let mut stack_list = HashMap::new();
 
@@ -861,7 +859,7 @@ impl Stack {
 
         // Get status from docker compose ls
         let output = Command::new("docker")
-            .args(&["compose", "ls", "--all", "--format", "json"])
+            .args(["compose", "ls", "--all", "--format", "json"])
             .output()
             .await
             .context("Failed to run docker compose ls")?;

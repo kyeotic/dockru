@@ -1,8 +1,7 @@
 // Rate limiting for authentication and API endpoints
 use governor::{
-    clock::DefaultClock,
-    state::{InMemoryState, direct::NotKeyed, keyed::DefaultKeyedStateStore},
-    Quota, RateLimiter as GovernorRateLimiter,
+    clock::DefaultClock, state::keyed::DefaultKeyedStateStore, Quota,
+    RateLimiter as GovernorRateLimiter,
 };
 use std::net::IpAddr;
 use std::num::NonZeroU32;

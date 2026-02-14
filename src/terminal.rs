@@ -225,7 +225,7 @@ impl Terminal {
         args: Vec<String>,
         cwd: String,
     ) -> Result<()> {
-        let mut inner = self.inner.lock().await;
+        let inner = self.inner.lock().await;
 
         // Don't start if already running
         if inner.pty_pair.is_some() {
@@ -366,7 +366,7 @@ impl Terminal {
         let _ = self
             .io
             .to(room_name)
-            .emit("agent", &("terminalWrite", &self.name, data));
+            .emit("agent", ("terminalWrite", &self.name, data));
     }
 
     /// Spawn cleanup task for kicking disconnected clients and keep-alive

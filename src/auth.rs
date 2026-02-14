@@ -1,9 +1,9 @@
 // Authentication and security utilities for Phase 4
 use anyhow::{Context, Result};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use bcrypt::{hash, verify};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sha3::{Digest, Shake256};
+use sha3::Shake256;
 
 /// Number of bcrypt rounds (matches TypeScript bcryptjs saltRounds = 10)
 pub const BCRYPT_COST: u32 = 10;

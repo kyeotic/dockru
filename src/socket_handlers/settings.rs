@@ -98,8 +98,6 @@ fn parse_set_settings_args(data: &serde_json::Value) -> Result<(SetSettingsData,
 async fn handle_get_settings(socket: &SocketRef, ctx: &ServerContext) -> Result<serde_json::Value> {
     check_login(socket)?;
 
-    let cache = SettingsCache::default();
-
     // Get all general settings
     let settings = Setting::get_settings(&ctx.db, "general").await?;
 

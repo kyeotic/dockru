@@ -14,11 +14,7 @@ use axum::{
 };
 use socketioxide::{extract::SocketRef, SocketIo, TransportType};
 use sqlx::SqlitePool;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs, path::PathBuf, sync::Arc};
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
@@ -306,7 +302,6 @@ pub async fn serve(config: Config) -> Result<()> {
 
     // Initialize encryption secret from jwtSecret setting (if app has been set up)
     {
-        use crate::db::models::setting::Setting;
         let jwt_secret: Option<(String,)> =
             sqlx::query_as("SELECT value FROM setting WHERE key = 'jwtSecret'")
                 .fetch_optional(db.pool())
@@ -460,7 +455,7 @@ async fn broadcast_stack_list_to_authenticated(ctx: &ServerContext) -> Result<()
 
     // Broadcast to all connected sockets wrapped in "agent" protocol
     // The frontend listens for socket.on("agent", (eventName, ...args) => ...)
-    ctx.io.emit("agent", &("stackList", &response)).ok();
+    ctx.io.emit("agent", ("stackList", &response)).ok();
 
     Ok(())
 }

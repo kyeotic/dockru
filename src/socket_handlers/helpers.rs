@@ -57,7 +57,7 @@ pub fn set_user_id(socket: &SocketRef, user_id: i64) {
 pub fn get_endpoint(socket: &SocketRef) -> String {
     get_socket_state(&socket.id.to_string())
         .map(|s| s.endpoint)
-        .unwrap_or_else(|| "".to_string())
+        .unwrap_or_default()
 }
 
 /// Set endpoint in socket state
@@ -124,7 +124,7 @@ pub fn emit_agent(socket: &SocketRef, event: &str, data: Value) -> Result<()> {
 
 /// Emit an agent event to all connected sockets via the SocketIo broadcast.
 pub fn broadcast_agent(io: &socketioxide::SocketIo, event: &str, data: Value) {
-    io.emit("agent", &(event, &data)).ok();
+    io.emit("agent", (event, &data)).ok();
     debug!("Broadcasted agent/{} to all sockets", event);
 }
 

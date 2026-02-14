@@ -223,7 +223,7 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
 }
 
 async fn handle_setup(
-    socket: &SocketRef,
+    _socket: &SocketRef,
     ctx: &ServerContext,
     data: SetupData,
 ) -> Result<serde_json::Value> {
@@ -281,7 +281,7 @@ async fn handle_login(
     // Rate limiting
     let ip = get_client_ip(socket);
     let limiter = LoginRateLimiter::new();
-    if let Err(_) = limiter.check(ip) {
+    if limiter.check(ip).is_err() {
         info!("Login rate limit exceeded for IP: {:?}", ip);
         return Ok(error_response_i18n("authRateLimitExceeded"));
     }
@@ -297,10 +297,10 @@ async fn handle_login(
 
     // Check 2FA
     if user.twofa_status {
-        if let Some(token) = data.token {
+        if let Some(_token) = data.token {
             // Verify 2FA token
             let twofa_limiter = TwoFaRateLimiter::new();
-            if let Err(_) = twofa_limiter.check(ip) {
+            if twofa_limiter.check(ip).is_err() {
                 return Ok(error_response_i18n("authRateLimitExceeded"));
             }
 
@@ -464,7 +464,7 @@ async fn after_login(socket: &SocketRef, ctx: &ServerContext, user: &User) -> Re
 
 /// Get client IP from socket
 /// Always respects X-Forwarded-For and X-Real-IP headers (trust proxy)
-fn get_client_ip(socket: &SocketRef) -> std::net::IpAddr {
+fn get_client_ip(_socket: &SocketRef) -> std::net::IpAddr {
     // Try to get from socket extensions/state
     // socketioxide doesn't provide direct access to request headers
     // For now, return localhost as placeholder
