@@ -26,6 +26,7 @@ pub struct Agent {
     #[serde(skip_serializing)] // Don't expose password in JSON
     pub password: Secret<String>, // Plaintext in memory
     pub active: bool,
+    pub endpoint: String,
 }
 
 /// Data for creating a new agent
@@ -33,7 +34,7 @@ pub struct Agent {
 pub struct NewAgent {
     pub url: String,
     pub username: String,
-    pub password: String,
+    pub password: Secret<String>,
     pub active: bool,
 }
 
@@ -48,35 +49,35 @@ impl AgentRow {
             Secret::new(self.password)
         };
 
+        let endpoint = parse_endpoint(&self.url)?;
+
         Ok(Agent {
             id: self.id,
             url: self.url,
             username: self.username,
             password: password_str,
             active: self.active,
+            endpoint,
         })
     }
 }
 
+fn parse_endpoint(url: &str) -> Result<String> {
+    let parsed_url =
+        Url::parse(url).with_context(|| format!("Failed to parse agent URL: {}", url))?;
+
+    let host = parsed_url.host_str().context("URL has no host")?;
+
+    let endpoint = if let Some(port) = parsed_url.port() {
+        format!("{}:{}", host, port)
+    } else {
+        host.to_string()
+    };
+
+    Ok(endpoint)
+}
+
 impl Agent {
-    /// Extract the endpoint (host:port) from the agent's URL
-    ///
-    /// Example: "https://example.com:5001" -> "example.com:5001"
-    pub fn endpoint(&self) -> Result<String> {
-        let parsed_url = Url::parse(&self.url)
-            .with_context(|| format!("Failed to parse agent URL: {}", self.url))?;
-
-        let host = parsed_url.host_str().context("URL has no host")?;
-
-        let endpoint = if let Some(port) = parsed_url.port() {
-            format!("{}:{}", host, port)
-        } else {
-            host.to_string()
-        };
-
-        Ok(endpoint)
-    }
-
     /// Find an agent by ID
     pub async fn find_by_id(
         pool: &SqlitePool,
@@ -132,9 +133,7 @@ impl Agent {
 
         let mut result = HashMap::new();
         for agent in agents {
-            if let Ok(endpoint) = agent.endpoint() {
-                result.insert(endpoint, agent);
-            }
+            result.insert(agent.endpoint.clone(), agent);
         }
 
         Ok(result)
@@ -151,9 +150,8 @@ impl Agent {
             .with_context(|| format!("Invalid agent URL: {}", new_agent.url))?;
 
         // Encrypt the password before storing
-        let encrypted_password =
-            encrypt_password(&Secret::new(new_agent.password), encryption_secret)
-                .context("Failed to encrypt agent password")?;
+        let encrypted_password = encrypt_password(&new_agent.password, encryption_secret)
+            .context("Failed to encrypt agent password")?;
 
         let result =
             sqlx::query("INSERT INTO agent (url, username, password, active) VALUES (?, ?, ?, ?)")
@@ -285,7 +283,7 @@ impl Agent {
         Ok(serde_json::json!({
             "url": self.url,
             "username": self.username,
-            "endpoint": self.endpoint()?,
+            "endpoint": self.endpoint,
         }))
     }
 }
@@ -315,7 +313,7 @@ mod tests {
         let new_agent = NewAgent {
             url: "https://example.com:5001".to_string(),
             username: "admin".to_string(),
-            password: "secret".to_string(),
+            password: Secret::new("secret".to_string()),
             active: true,
         };
 
@@ -354,7 +352,7 @@ mod tests {
         let new_agent = NewAgent {
             url: "https://example.com:5001".to_string(),
             username: "admin".to_string(),
-            password: "my_secret_pass".to_string(),
+            password: Secret::new("my_secret_pass".to_string()),
             active: true,
         };
 
@@ -390,7 +388,7 @@ mod tests {
             NewAgent {
                 url: "https://example.com:5001".to_string(),
                 username: "admin".to_string(),
-                password: "pass".to_string(),
+                password: Secret::new("pass".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -398,7 +396,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(agent1.endpoint().unwrap(), "example.com:5001");
+        assert_eq!(agent1.endpoint, "example.com:5001");
 
         // Without explicit port (HTTPS default)
         let agent2 = Agent::create(
@@ -406,7 +404,7 @@ mod tests {
             NewAgent {
                 url: "https://example.com".to_string(),
                 username: "admin".to_string(),
-                password: "pass".to_string(),
+                password: Secret::new("pass".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -414,7 +412,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(agent2.endpoint().unwrap(), "example.com");
+        assert_eq!(agent2.endpoint, "example.com");
 
         // HTTP with port
         let agent3 = Agent::create(
@@ -422,7 +420,7 @@ mod tests {
             NewAgent {
                 url: "http://192.168.1.100:8080".to_string(),
                 username: "admin".to_string(),
-                password: "pass".to_string(),
+                password: Secret::new("pass".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -430,7 +428,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(agent3.endpoint().unwrap(), "192.168.1.100:8080");
+        assert_eq!(agent3.endpoint, "192.168.1.100:8080");
     }
 
     #[tokio::test]
@@ -443,7 +441,7 @@ mod tests {
             NewAgent {
                 url: "https://agent1.com:5001".to_string(),
                 username: "user1".to_string(),
-                password: "pass1".to_string(),
+                password: Secret::new("pass1".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -456,7 +454,7 @@ mod tests {
             NewAgent {
                 url: "https://agent2.com:5002".to_string(),
                 username: "user2".to_string(),
-                password: "pass2".to_string(),
+                password: Secret::new("pass2".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -481,7 +479,7 @@ mod tests {
             NewAgent {
                 url: "https://old.com:5001".to_string(),
                 username: "olduser".to_string(),
-                password: "oldpass".to_string(),
+                password: Secret::new("oldpass".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -527,7 +525,7 @@ mod tests {
             NewAgent {
                 url: "https://example.com:5001".to_string(),
                 username: "admin".to_string(),
-                password: "secret".to_string(),
+                password: Secret::new("secret".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -554,7 +552,7 @@ mod tests {
             NewAgent {
                 url: "not a valid url".to_string(),
                 username: "admin".to_string(),
-                password: "pass".to_string(),
+                password: Secret::new("pass".to_string()),
                 active: true,
             },
             &test_secret(),
@@ -574,7 +572,7 @@ mod tests {
             NewAgent {
                 url: "https://example.com:5001".to_string(),
                 username: "admin".to_string(),
-                password: "pass".to_string(),
+                password: Secret::new("pass".to_string()),
                 active: true,
             },
             &test_secret(),

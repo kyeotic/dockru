@@ -228,11 +228,11 @@ impl AgentManager {
         let new_agent = NewAgent {
             url: url.to_string(),
             username: username.to_string(),
-            password: password.to_string(),
+            password: Secret::new(password.to_string()),
             active: true,
         };
         let agent = Agent::create(&self.db, new_agent, &self.encryption_secret).await?;
-        let endpoint = agent.endpoint()?;
+        let endpoint = agent.endpoint.clone();
         info!("Added agent: {} (endpoint: {})", url, endpoint);
         Ok(agent)
     }
@@ -243,7 +243,7 @@ impl AgentManager {
             .await?
             .ok_or_else(|| anyhow!("Agent not found"))?;
 
-        let endpoint = agent.endpoint()?;
+        let endpoint = agent.endpoint.clone();
 
         // Disconnect first
         self.disconnect(&endpoint).await;
@@ -683,10 +683,9 @@ impl AgentManager {
 
         // Add remote agents
         for agent in agents {
-            if let Ok(endpoint) = agent.endpoint() {
-                if let Ok(agent_json) = agent.to_json() {
-                    agent_list.insert(endpoint, agent_json);
-                }
+            let endpoint = agent.endpoint.clone();
+            if let Ok(agent_json) = agent.to_json() {
+                agent_list.insert(endpoint, agent_json);
             }
         }
 
