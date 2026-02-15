@@ -454,9 +454,10 @@ async fn broadcast_stack_list_to_authenticated(ctx: &ServerContext) -> Result<()
         "stackList": map,
     });
 
-    // Broadcast to all connected sockets wrapped in "agent" protocol
+    // Broadcast to authenticated sockets only wrapped in "agent" protocol
     // The frontend listens for socket.on("agent", (eventName, ...args) => ...)
-    ctx.io.emit("agent", ("stackList", &response)).ok();
+    use crate::socket_handlers::broadcast_to_authenticated;
+    broadcast_to_authenticated(&ctx.io, "stackList", response);
 
     Ok(())
 }

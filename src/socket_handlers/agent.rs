@@ -21,12 +21,6 @@ struct AddAgentData {
     password: String,
 }
 
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct RemoveAgentData {
-    url: String,
-}
-
 /// Setup agent management event handlers
 pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     // addAgent - Add a remote Dockru instance
@@ -71,10 +65,6 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                warn!(
-                    "Agent event received, data type: {:?}",
-                    std::mem::discriminant(&data)
-                );
                 if let Err(e) = handle_agent_proxy(&socket, &ctx, data, ack).await {
                     warn!("Agent proxy error: {}", e);
                 }

@@ -4,20 +4,19 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 
 ## 1. Unimplemented Socket Event Handlers
 
-**Purpose**: Data structures for socket events that are not yet fully implemented or planned for future phases.
+**Status**: ✅ Cleaned up
 
-- `src/socket_handlers/agent.rs:25` - `RemoveAgentData` struct
-  - Was replaced by simpler String parameter in actual handler (line 53)
+- `RemoveAgentData` struct - Removed (was already replaced by simpler String parameter)
 
 ## 2. Socket State Management
 
-**Purpose**: Socket connection state tracking and helper utilities.
+**Status**: ✅ Implemented (Issue resolved)
 
-- `src/socket_handlers/helpers.rs:13` - `SocketState::ip_address` field
-  - IP address tracking for rate limiting or audit logs
-
-- `src/socket_handlers/helpers.rs:140` - `callback_result()` function
-  - Generic callback handler that wraps Result types
+All items in this section have been implemented:
+- IP address tracking infrastructure added (getter/setter functions)
+- Authenticated socket tracking implemented with global HashSet
+- `broadcast_to_authenticated()` now properly filters by authentication status
+- `callback_result()` removed (unused, existing patterns preferred)
 
 ## 3. Stack Management Utilities
 

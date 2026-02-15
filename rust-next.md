@@ -112,23 +112,23 @@ This document catalogs features not yet implemented, known limitations, technica
 
 ### 2.1 Socket State Management
 
-**Status:** Basic implementation, lacks filtering  
+**Status:** ✅ Implemented
 **Locations:**
-- [src/socket_handlers/helpers.rs](src/socket_handlers/helpers.rs#L124)
-- [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs#L443)
+- [src/socket_handlers/helpers.rs](src/socket_handlers/helpers.rs)
+- [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs)
+- [src/server.rs](src/server.rs)
 
-**Current Behavior:**
-- `broadcast_to_all_authenticated()` broadcasts to ALL sockets
-- No filtering by authentication status
-- Cannot disconnect specific sockets
+**Implementation:**
+- ✅ Authenticated socket tracking using socketioxide rooms
+- ✅ `broadcast_to_authenticated()` now filters to authenticated room only
+- ✅ Stack list broadcasts filtered to authenticated sockets (security fix)
+- ✅ IP address tracking infrastructure added (getter/setter functions)
+- ✅ Socket automatically removed from authenticated room on disconnect
+- ✅ `callback_result()` removed (unused, existing patterns preferred)
 
-**What's Needed:**
-- Track authenticated socket IDs in ServerContext
-- Filter broadcasts to only authenticated sockets
-- Implement `disconnectAllSocketClients` except current
-- Track socket endpoint and metadata
+**Note:** IP address field exists but remains None until socketioxide supports peer address access (see section 3.2)
 
-**Priority:** Medium - Security concern (unauthenticated users see broadcasts)
+**Priority:** ~~Medium~~ Done - Security concern resolved
 
 ---
 
@@ -279,26 +279,104 @@ and can be removed.
 
 ### 3.4 Stack List Authentication Filtering
 
-**Status:** Current implementation acceptable  
+**Status:** ✅ Implemented
 **Locations:**
-- [src/server.rs](src/server.rs#L383)
-- [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs#L443)
-
-**Issue:**
-- Stack list broadcast goes to ALL connected sockets
-- Not filtered by authentication status
-- Unauthenticated users may receive stack list
-
-**Workaround:**
-- Frontend ignores broadcasts when not authenticated
-- Not a security issue (no sensitive data)
-- User must be authenticated to perform stack operations
+- [src/server.rs](src/server.rs#L459)
+- [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs#L715)
 
 **Resolution:**
-- Track authenticated sockets in ServerContext
-- Filter broadcasts by authentication status
+- ✅ Stack list broadcasts now use `broadcast_to_authenticated()`
+- ✅ Authenticated sockets tracked via socketioxide rooms
+- ✅ Only authenticated users receive stack updates
+- ✅ Automatic cleanup on disconnect
 
-**Priority:** Medium - Security hygiene but not critical
+**Priority:** ~~Medium~~ Done - Security hygiene improved
+
+---
+
+### 3.5 IP Address Identification for Socket Connections
+
+**Status:** Not implemented
+**Related:** Section 3.2 (X-Forwarded-For extraction)
+**Location:** [src/socket_handlers/helpers.rs](src/socket_handlers/helpers.rs) - IP tracking infrastructure exists
+
+**Issue:**
+- socketioxide doesn't expose peer address or HTTP headers in socket handlers
+- Cannot capture client IP for rate limiting, audit logs, or security
+- `SocketState::ip_address` field exists but remains None
+- `get_client_ip()` in auth.rs returns hardcoded 127.0.0.1
+
+**Proposed Solution - Signed Nonce System:**
+
+1. **Nonce Generation Endpoint:**
+   - Add HTTP endpoint: `GET /api/socket-nonce`
+   - Extract client IP from request headers (X-Forwarded-For or peer address)
+   - Generate cryptographically secure random nonce
+   - Sign nonce with server secret (HMAC-SHA256 using jwtSecret)
+   - Store mapping: `nonce -> {ip, timestamp, used: false}` in memory (with TTL)
+   - Return `{nonce, signature}` to client
+
+2. **Socket Connection:**
+   - Client sends nonce + signature on socket connect (e.g., in query params or initial event)
+   - Server validates signature and checks nonce is unused and not expired
+   - Mark nonce as used (prevent replay attacks)
+   - Extract IP from stored mapping
+   - Store IP in `SocketState::ip_address` via `set_ip_address()`
+
+3. **Benefits:**
+   - Works behind reverse proxies (HTTP endpoint sees X-Forwarded-For)
+   - Secure (signed nonces prevent forgery)
+   - Replay-attack resistant (one-time use)
+   - No socketioxide framework changes needed
+
+**Implementation Details:**
+```rust
+// In-memory nonce store with TTL cleanup
+struct NonceData {
+    ip: String,
+    created_at: Instant,
+    used: bool,
+}
+
+// Endpoint: GET /api/socket-nonce
+async fn generate_socket_nonce(
+    req: Request,
+    ctx: Arc<ServerContext>
+) -> Result<Json<NonceResponse>> {
+    let ip = extract_client_ip(&req); // X-Forwarded-For aware
+    let nonce = gen_secret(32);
+    let signature = hmac_sign(&nonce, &ctx.jwt_secret);
+
+    NONCE_STORE.insert(nonce.clone(), NonceData {
+        ip,
+        created_at: Instant::now(),
+        used: false,
+    });
+
+    Ok(Json(NonceResponse { nonce, signature }))
+}
+
+// On socket connect, validate and extract IP
+fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
+    // Verify signature
+    // Check not expired (< 60 seconds old)
+    // Check not used
+    // Mark as used
+    // Return IP
+}
+```
+
+**Alternative Solutions:**
+- **Middleware injection:** Use Axum middleware to capture IP and inject into socket extensions (requires socketioxide API support)
+- **Wait for socketioxide:** Framework may add header/peer address access in future versions
+- **Trust mode only:** Only use this for reverse proxy deployments, direct connections use peer_addr when available
+
+**TTL and Cleanup:**
+- Nonces expire after 60 seconds (should be used immediately after generation)
+- Background task cleans expired nonces every 5 minutes
+- Used nonces removed immediately after validation
+
+**Priority:** Medium - Enables accurate rate limiting and audit logging behind proxies
 
 ---
 
@@ -554,14 +632,15 @@ and can be removed.
 4. ⚠️ Docker CLI → SDK migration
 
 ### Medium Priority (Functionality)
-6. Socket state management and authentication filtering
-7. X-Forwarded-For IP extraction (rate limiting accuracy)
-8. Two-factor authentication implementation
-9. ✅ Composerize feature
-10. Terminal keep-alive (room membership tracking)
-11. Integration and load testing
-12. Cross-platform testing
-13. Deployment documentation
+6. ✅ Socket state management and authentication filtering
+7. IP address identification for socket connections (signed nonce system)
+8. X-Forwarded-For IP extraction (or use nonce system workaround)
+9. Two-factor authentication implementation
+10. ✅ Composerize feature
+11. Terminal keep-alive (room membership tracking)
+12. Integration and load testing
+13. Cross-platform testing
+14. Deployment documentation
 
 ### Low Priority (Nice-to-Have)
 14. Stack list caching
@@ -578,23 +657,24 @@ and can be removed.
 ## 9. Recommendations
 
 ### Immediate Actions (Before Production)
-1. Implement agent password encryption
-2. ~~Add password validation for disableAuth setting~~ ✅
-3. Write migration guide
-4. Cross-platform testing
+1. ✅ Implement agent password encryption
+2. ✅ Add password validation for disableAuth setting
+3. ✅ Implement proper socket authentication filtering
+4. Write migration guide
+5. Cross-platform testing
 
 ### Near-Term (First Production Release)
-1. Implement proper socket authentication filtering
-2. Add X-Forwarded-For support (when socketioxide supports it)
-3. Create deployment documentation
-4. Integration tests
+1. Implement IP address identification (signed nonce system or wait for socketioxide)
+2. Create deployment documentation
+3. Integration tests
+4. Two-factor authentication
 
 ### Long-Term (Future Versions)
 1. Two-factor authentication
-2. Interactive container terminals
+2. ✅ Interactive container terminals
 3. Docker SDK migration
 4. Performance optimizations (as needed)
-5. Advanced features (composerize, etc.)
+5. ✅ Advanced features (composerize)
 
 ---
 

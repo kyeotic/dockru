@@ -1,5 +1,7 @@
 use crate::server::ServerContext;
-use crate::socket_handlers::{callback_error, callback_ok, check_login, get_endpoint};
+use crate::socket_handlers::{
+    broadcast_to_authenticated, callback_error, callback_ok, check_login, get_endpoint,
+};
 use crate::stack::{ServiceStatus, Stack};
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
@@ -711,8 +713,8 @@ async fn broadcast_stack_list(ctx: &ServerContext) {
                 "stackList": map,
             });
 
-            // Broadcast wrapped in "agent" protocol
-            ctx.io.emit("agent", ("stackList", &response)).ok();
+            // Broadcast to authenticated sockets only
+            broadcast_to_authenticated(&ctx.io, "stackList", response);
         }
         Err(e) => {
             debug!("Failed to get stack list for broadcast: {}", e);

@@ -2,6 +2,7 @@ use crate::auth::{create_jwt, hash_password, shake256, verify_jwt, SHAKE256_LENG
 use crate::db::models::{NewUser, Setting, User};
 use crate::rate_limiter::{LoginRateLimiter, TwoFaRateLimiter};
 use crate::server::ServerContext;
+use crate::socket_handlers::add_authenticated_socket;
 use crate::socket_handlers::{
     broadcast_to_authenticated, callback_error, callback_ok, check_login, error_response,
     error_response_i18n, set_endpoint, set_user_id,
@@ -438,6 +439,9 @@ async fn handle_disconnect_others(socket: &SocketRef, ctx: &ServerContext) -> Re
 async fn after_login(socket: &SocketRef, ctx: &ServerContext, user: &User) -> Result<()> {
     // Set user ID in socket state
     set_user_id(socket, user.id);
+
+    // Mark socket as authenticated by joining the authenticated room
+    add_authenticated_socket(socket);
 
     // Join user room for broadcasting
     socket.join(user.id.to_string()).ok();

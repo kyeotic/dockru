@@ -10,7 +10,9 @@ use tracing::debug;
 pub struct SocketState {
     pub user_id: Option<i64>,
     pub endpoint: String,
-    #[allow(dead_code)]
+    /// IP address of the socket connection.
+    /// Note: Currently always None due to socketioxide not exposing peer address.
+    /// See rust-next.md section 3.2 for details.
     pub ip_address: Option<String>,
 }
 
@@ -18,6 +20,9 @@ pub struct SocketState {
 /// Maps socket ID to socket state
 static SOCKET_STATE: once_cell::sync::Lazy<Arc<RwLock<HashMap<String, SocketState>>>> =
     once_cell::sync::Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
+
+/// Room name for all authenticated sockets
+const AUTHENTICATED_ROOM: &str = "authenticated";
 
 /// Set socket state
 pub fn set_socket_state(socket_id: &str, state: SocketState) {
@@ -39,6 +44,7 @@ pub fn remove_socket_state(socket_id: &str) {
     if let Ok(mut map) = SOCKET_STATE.write() {
         map.remove(socket_id);
     }
+    // Note: Socket rooms are automatically cleaned up on disconnect
 }
 
 /// Get user ID from socket state
@@ -67,6 +73,25 @@ pub fn set_endpoint(socket: &SocketRef, endpoint: String) {
     let mut state = get_socket_state(&socket_id).unwrap_or_default();
     state.endpoint = endpoint;
     set_socket_state(&socket_id, state);
+}
+
+/// Get IP address from socket state
+pub fn get_ip_address(socket: &SocketRef) -> Option<String> {
+    get_socket_state(&socket.id.to_string()).and_then(|s| s.ip_address)
+}
+
+/// Set IP address in socket state
+pub fn set_ip_address(socket: &SocketRef, ip_address: Option<String>) {
+    let socket_id = socket.id.to_string();
+    let mut state = get_socket_state(&socket_id).unwrap_or_default();
+    state.ip_address = ip_address;
+    set_socket_state(&socket_id, state);
+}
+
+/// Mark a socket as authenticated by joining it to the authenticated room
+pub fn add_authenticated_socket(socket: &SocketRef) {
+    socket.join(AUTHENTICATED_ROOM).ok();
+    debug!("Socket {} joined authenticated room", socket.id);
 }
 
 /// Check if socket is authenticated
@@ -131,32 +156,11 @@ pub fn broadcast_agent(io: &socketioxide::SocketIo, event: &str, data: Value) {
 
 /// Broadcast to all authenticated sockets, wrapped in the "agent" protocol.
 pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data: Value) {
-    // TODO: Iterate through all sockets and emit only to authenticated ones
-    // For now, broadcast to all wrapped in "agent"
-    broadcast_agent(io, event, data);
-}
-
-/// Handle callback with result
-#[allow(dead_code)]
-pub fn callback_result<T: serde::Serialize>(
-    callback: Option<socketioxide::extract::AckSender>,
-    result: Result<T>,
-) {
-    if let Some(ack) = callback {
-        match result {
-            Ok(data) => {
-                let response = json!({
-                    "ok": true,
-                    "data": data
-                });
-                ack.send(&response).ok();
-            }
-            Err(e) => {
-                let response = error_response(&e.to_string());
-                ack.send(&response).ok();
-            }
-        }
-    }
+    // Emit to the authenticated room
+    io.to(AUTHENTICATED_ROOM)
+        .emit("agent", (event, &data))
+        .ok();
+    debug!("Broadcasted agent/{} to authenticated sockets", event);
 }
 
 /// Handle callback with simple ok response
