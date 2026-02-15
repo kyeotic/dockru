@@ -12,7 +12,8 @@ pub struct SocketState {
     pub endpoint: String,
     /// IP address of the socket connection.
     /// Note: Currently always None due to socketioxide not exposing peer address.
-    /// See rust-next.md section 3.2 for details.
+    /// See rust-next.md section 3.5 for implementation plan (signed nonce system).
+    #[allow(dead_code)]
     pub ip_address: Option<String>,
 }
 
@@ -76,11 +77,15 @@ pub fn set_endpoint(socket: &SocketRef, endpoint: String) {
 }
 
 /// Get IP address from socket state
+/// Infrastructure for future use - see rust-next.md section 3.5
+#[allow(dead_code)]
 pub fn get_ip_address(socket: &SocketRef) -> Option<String> {
     get_socket_state(&socket.id.to_string()).and_then(|s| s.ip_address)
 }
 
 /// Set IP address in socket state
+/// Infrastructure for future use - see rust-next.md section 3.5
+#[allow(dead_code)]
 pub fn set_ip_address(socket: &SocketRef, ip_address: Option<String>) {
     let socket_id = socket.id.to_string();
     let mut state = get_socket_state(&socket_id).unwrap_or_default();
@@ -149,6 +154,9 @@ pub fn emit_agent(socket: &SocketRef, event: &str, data: Value) -> Result<()> {
 }
 
 /// Emit an agent event to all connected sockets via the SocketIo broadcast.
+/// Kept for broadcasting to ALL sockets (authenticated and unauthenticated).
+/// Use broadcast_to_authenticated() for authenticated-only broadcasts.
+#[allow(dead_code)]
 pub fn broadcast_agent(io: &socketioxide::SocketIo, event: &str, data: Value) {
     io.emit("agent", (event, &data)).ok();
     debug!("Broadcasted agent/{} to all sockets", event);

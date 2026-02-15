@@ -43,16 +43,38 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
 
 /// Check if a hash needs to be rehashed with current cost
 ///
-/// For future use - currently always returns false as we use constant cost
+/// Bcrypt hashes encode the cost factor in the hash string itself.
+/// When BCRYPT_COST is increased in the code, this function detects
+/// old hashes that need to be upgraded on next login.
 ///
 /// # Arguments
-/// * `_hash` - Hash to check
+/// * `hash` - Bcrypt hash to check (format: $2b$10$...)
 ///
 /// # Returns
-/// `false` - we don't implement rehashing yet
-#[allow(dead_code)]
-pub fn need_rehash_password(_hash: &str) -> bool {
-    false
+/// `true` if hash cost differs from BCRYPT_COST or hash format is invalid
+/// `false` only if hash is valid and cost matches BCRYPT_COST
+///
+/// # Security Note
+/// Returns `true` (needs rehash) for unparseable hashes as a safe default.
+/// This ensures malformed or unknown hash formats get replaced with fresh,
+/// verifiable hashes using the current cost.
+pub fn need_rehash_password(hash: &str) -> bool {
+    // Bcrypt hash format: $2a$10$saltsaltsaltsaltsalthashhashhashhashhashhashhash
+    // Parts: [$, 2a/2b/2y, cost, salt+hash]
+    let parts: Vec<&str> = hash.split('$').collect();
+
+    if parts.len() < 4 {
+        // Invalid hash format - needs fresh hash
+        return true;
+    }
+
+    // Cost is at index 2 (after empty string and version)
+    if let Ok(hash_cost) = parts[2].parse::<u32>() {
+        hash_cost != BCRYPT_COST
+    } else {
+        // Failed to parse cost - needs fresh hash
+        true
+    }
 }
 
 /// Generate a shake256 hash of data
@@ -204,7 +226,21 @@ mod tests {
 
     #[test]
     fn test_need_rehash() {
-        // Always returns false for now
+        // Should return false for hash with current cost (10)
         assert!(!need_rehash_password("$2b$10$abcdef..."));
+
+        // Should return true for hash with different cost
+        assert!(need_rehash_password("$2b$08$abcdef..."));
+        assert!(need_rehash_password("$2b$12$abcdef..."));
+
+        // Should handle different bcrypt versions with same cost
+        assert!(!need_rehash_password("$2a$10$abcdef..."));
+        assert!(!need_rehash_password("$2y$10$abcdef..."));
+
+        // Should return true for invalid hash formats (safe default)
+        assert!(need_rehash_password("invalid"));
+        assert!(need_rehash_password("$2b$"));
+        assert!(need_rehash_password(""));
+        assert!(need_rehash_password("$2b$notanumber$..."));
     }
 }

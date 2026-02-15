@@ -173,12 +173,19 @@ async fn handle_set_settings(
                         anyhow!("Current password is required to disable authentication")
                     })?;
 
-                let user = User::find_by_id(&ctx.db, user_id)
+                let mut user = User::find_by_id(&ctx.db, user_id)
                     .await?
                     .ok_or_else(|| anyhow!("User not found"))?;
 
                 if !user.verify_password(password)? {
                     return Err(anyhow!("Incorrect password"));
+                }
+
+                // Check if password needs rehashing with updated cost
+                if let Some(ref password_hash) = user.password {
+                    if crate::auth::need_rehash_password(password_hash) {
+                        user.update_password(&ctx.db, password).await?;
+                    }
                 }
             }
         }

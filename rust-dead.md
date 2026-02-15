@@ -2,16 +2,35 @@
 
 This document catalogs all `#[allow(dead_code)]` annotations in the Dockru project, grouped by intended feature.
 
+## 2. Socket IP Address Tracking (Future Infrastructure)
 
-## 4. Authentication & Password Management
+**Purpose**: IP address tracking for rate limiting and audit logs.
+**Status**: Infrastructure ready, awaiting implementation (see rust-next.md section 3.5)
 
-**Purpose**: Password security and rehashing utilities.
+- `src/socket_handlers/helpers.rs:18` - `SocketState::ip_address` field
+  - Stores client IP address per socket connection
+  - Currently always None due to socketioxide limitations
 
-- `src/auth.rs:53` - `need_rehash_password()` function
-  - Check if password hash needs rehashing with updated cost
-  - Always returns false as bcrypt cost is constant
+- `src/socket_handlers/helpers.rs:82` - `get_ip_address()` function
+  - Retrieve IP address from socket state
 
-## 5. Utility Types & Response Helpers
+- `src/socket_handlers/helpers.rs:88` - `set_ip_address()` function
+  - Store IP address in socket state
+
+**Planned Implementation:**
+- Signed nonce system: client fetches nonce via HTTP (captures IP), uses nonce to connect socket
+- See rust-next.md section 3.5 for full design
+
+## 3. Socket Broadcasting Utilities
+
+**Purpose**: Broadcast helpers for different socket groups.
+
+- `src/socket_handlers/helpers.rs:155` - `broadcast_agent()` function
+  - Broadcast to ALL connected sockets (authenticated and unauthenticated)
+  - Use `broadcast_to_authenticated()` for filtered broadcasts
+  - Kept for system-wide announcements
+
+## 4. Utility Types & Response Helpers
 
 **Purpose**: Common data structures and response builders.
 
@@ -23,7 +42,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/types.rs:38` - `BaseRes::error()` method
   - Standard API response builders
 
-## 6. Rate Limiting (Future API Endpoints)
+## 5. Rate Limiting (Future API Endpoints)
 
 **Purpose**: Rate limiting for REST API endpoints (not yet implemented).
 
@@ -34,7 +53,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/rate_limiter.rs:100` - `RateLimiters::new()` method
   - Currently only login and 2FA rate limiters are actively used
 
-## 7. Constants & Status Utilities
+## 6. Constants & Status Utilities
 
 **Purpose**: Error types and status display functions.
 
@@ -46,7 +65,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/constants.rs:57` - `status_color()` function
   - Stack status display helpers for UI
 
-## 8. Database Management
+## 7. Database Management
 
 **Purpose**: Database maintenance and lifecycle operations.
 
@@ -59,7 +78,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/db/mod.rs:147` - `Database::shrink()` method
   - Run VACUUM to compact database
 
-## 9. Docker Port Parsing
+## 8. Docker Port Parsing
 
 **Purpose**: Parse and display Docker port mappings.
 
@@ -68,7 +87,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
   - Parse various Docker port formats (3000, 8000:8000, 0.0.0.0:8080->8080/tcp, etc.)
   - Convert to URL and display string
 
-## 10. Cryptography Utilities
+## 9. Cryptography Utilities
 
 **Purpose**: Random string generation, hashing, and async sleep utilities.
 
@@ -85,14 +104,14 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/crypto.rs:70` - `sleep()` async function
   - Async sleep wrapper
 
-## 11. Version Checking
+## 10. Version Checking
 
 **Purpose**: Check for software updates.
 
 - `src/check_version.rs:22` - `VersionResponse::beta` field
   - Beta release version (currently only stable/slow channel is used)
 
-## 12. Terminal Naming Utilities
+## 11. Terminal Naming Utilities
 
 **Purpose**: Generate consistent terminal names for different terminal types.
 
@@ -100,7 +119,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
   - Format: "container-{endpoint}-{container}"
   - May be used for container attach operations (vs exec which is currently used)
 
-## 13. Settings Cache Management
+## 12. Settings Cache Management
 
 **Purpose**: Settings caching with TTL and cleanup.
 
@@ -113,7 +132,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/db/models/setting.rs:294` - `Setting::delete()` method
   - Delete individual setting by key
 
-## 14. Limit Queue (Circular Buffer)
+## 13. Limit Queue (Circular Buffer)
 
 **Purpose**: Fixed-size queue for terminal output buffering.
 
@@ -127,7 +146,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/limit_queue.rs:90` - `LimitQueue::limit()` method
   - Utility methods for queue management
 
-## 15. User Management (Admin Features)
+## 14. User Management (Admin Features)
 
 **Purpose**: User CRUD operations and authentication features.
 
@@ -160,7 +179,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/db/models/user.rs:232` - `User::create_jwt()` method
   - Create JWT token for user (used in auth flow)
 
-## 16. Terminal System (PTY Management)
+## 15. Terminal System (PTY Management)
 
 **Purpose**: Interactive terminal and shell access.
 
@@ -169,7 +188,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/terminal.rs:632` - Unknown (needs full file read)
   - Likely terminal lifecycle or I/O methods
 
-## 17. Agent Management (Remote Dockru Instances)
+## 16. Agent Management (Remote Dockru Instances)
 
 **Purpose**: Connect to and manage remote Dockru agents.
 
@@ -200,7 +219,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 ## Summary by Feature Phase
 
 ### Phase 4 - Authentication
-- Password rehashing check
+- ✅ Password rehashing (implemented - see `need_rehash_password()`)
 - JWT utilities
 
 ### Phase 5 - Terminal System

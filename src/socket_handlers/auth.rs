@@ -288,12 +288,23 @@ async fn handle_login(
     }
 
     // Find and verify user
-    let user = User::find_by_username(&ctx.db, &data.username)
+    let mut user = User::find_by_username(&ctx.db, &data.username)
         .await?
         .ok_or_else(|| anyhow!("authIncorrectCreds"))?;
 
     if !user.verify_password(&data.password)? {
         return Ok(error_response_i18n("authIncorrectCreds"));
+    }
+
+    // Check if password needs rehashing with updated cost
+    if let Some(ref password_hash) = user.password {
+        if crate::auth::need_rehash_password(password_hash) {
+            info!(
+                "Rehashing password for user {} with updated cost",
+                user.username
+            );
+            user.update_password(&ctx.db, &data.password).await?;
+        }
     }
 
     // Check 2FA

@@ -28,47 +28,28 @@ This document catalogs features not yet implemented, known limitations, technica
 
 ---
 
-### 1.2 Interactive Container Terminals
-
-**Status:** ✅ Implemented  
-**Location:** [src/stack.rs](src/stack.rs#L685) | [src/socket_handlers/terminal.rs](src/socket_handlers/terminal.rs#L218)
-
-**Current Behavior:**
-- `interactiveTerminal` socket event creates interactive shell in running containers
-- Can open shell in running containers via `docker compose exec`
-- Supports multiple shell types (bash, sh, ash, etc.)
-- Reuses existing terminal sessions when reconnecting
-
-**Implementation:**
-- `Stack::join_container_terminal(socket, service_name, shell, index)` method
-- Executes `docker compose exec <service> <shell>` in interactive PTY
-- Defaults to "sh" if no shell specified
-- Supports multiple concurrent terminals via index parameter
-- Terminal input/output piping via Socket.io events
-
-**Testing Notes:**
-- Test with different shells (bash, sh, ash for Alpine)
-- Test reconnection to existing terminal sessions
-- Test multiple simultaneous connections to different services
-
----
-
-### 1.3 Composerize
+### 1.2 Password Rehashing on Cost Increase
 
 **Status:** ✅ Implemented
-**Location:** [src/socket_handlers/settings.rs](src/socket_handlers/settings.rs#L200)
-
-**Current Behavior:**
-- `composerize` socket event converts docker run commands to docker-compose YAML
-- Uses composerize-np crate for conversion
-- Returns formatted YAML with version "latest" and 2-space indentation
+**Location:** [src/auth.rs](src/auth.rs#L44), [src/socket_handlers/auth.rs](src/socket_handlers/auth.rs#L300)
 
 **Implementation:**
-- Added `composerize-np = "0.2"` dependency to Cargo.toml
-- `handle_composerize()` calls `composerize_np::composerize(command, "", "latest", 2)`
-- Returns JSON with `{ok: true, output: <yaml>}`
+- `need_rehash_password()` function extracts cost from bcrypt hash and compares to `BCRYPT_COST` constant
+- **Safe by default**: Returns `true` (needs rehash) for unparseable or malformed hashes
+- Login flow automatically rehashes passwords when cost has increased or format is invalid
+- Settings update (disableAuth) also checks and rehashes if needed
+- Allows gradual password hash upgrades without forcing password resets
 
-**Priority:** ~~Medium~~ Done - Parity with TS Version achieved
+**How It Works:**
+1. Bcrypt hashes embed the cost factor in the hash string (e.g., `$2b$10$...`)
+2. When `BCRYPT_COST` is updated (e.g., from 10 to 12) and the app is rebuilt
+3. On next login, `need_rehash_password()` detects the mismatch
+4. User's password is automatically rehashed with the new cost and saved
+
+**Security Benefit:**
+- Allows incrementally increasing hash strength as computing power increases
+- No user action required - transparent upgrade on next authentication
+- Follows bcrypt best practices for password security maintenance
 
 ---
 
@@ -109,46 +90,6 @@ This document catalogs features not yet implemented, known limitations, technica
 ---
 
 ## 2. TODOs and Partial Implementations
-
-### 2.1 Socket State Management
-
-**Status:** ✅ Implemented
-**Locations:**
-- [src/socket_handlers/helpers.rs](src/socket_handlers/helpers.rs)
-- [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs)
-- [src/server.rs](src/server.rs)
-
-**Implementation:**
-- ✅ Authenticated socket tracking using socketioxide rooms
-- ✅ `broadcast_to_authenticated()` now filters to authenticated room only
-- ✅ Stack list broadcasts filtered to authenticated sockets (security fix)
-- ✅ IP address tracking infrastructure added (getter/setter functions)
-- ✅ Socket automatically removed from authenticated room on disconnect
-- ✅ `callback_result()` removed (unused, existing patterns preferred)
-
-**Note:** IP address field exists but remains None until socketioxide supports peer address access (see section 3.2)
-
-**Priority:** ~~Medium~~ Done - Security concern resolved
-
----
-
-### 2.2 Password Validation for Auth Disable
-
-**Status:** ✅ Implemented  
-**Location:** [src/socket_handlers/settings.rs](src/socket_handlers/settings.rs#L131)
-
-**Current Behavior:**
-- When changing `disableAuth` from `false` to `true`, the server requires the current password
-- Password is verified against the logged-in user's stored bcrypt hash
-- Missing or incorrect password returns an error and blocks the setting change
-- Re-enabling auth (setting `disableAuth` back to `false`) does not require a password
-
-**Implementation:**
-- `handle_set_settings` checks if `disableAuth` is being set to `true`
-- Compares against current stored value to detect the transition
-- Validates `currentPassword` argument (sent as second positional arg from frontend)
-- Uses `User::verify_password()` for bcrypt verification
-
 ---
 
 ### 2.3 Stack List Caching
@@ -277,23 +218,6 @@ and can be removed.
 
 ---
 
-### 3.4 Stack List Authentication Filtering
-
-**Status:** ✅ Implemented
-**Locations:**
-- [src/server.rs](src/server.rs#L459)
-- [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs#L715)
-
-**Resolution:**
-- ✅ Stack list broadcasts now use `broadcast_to_authenticated()`
-- ✅ Authenticated sockets tracked via socketioxide rooms
-- ✅ Only authenticated users receive stack updates
-- ✅ Automatic cleanup on disconnect
-
-**Priority:** ~~Medium~~ Done - Security hygiene improved
-
----
-
 ### 3.5 IP Address Identification for Socket Connections
 
 **Status:** Not implemented
@@ -381,24 +305,6 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 ---
 
 ## 4. Technical Debt
-
-### 4.1 Agent Passwords Encrypted at Rest
-
-**Status:** ✅ Implemented  
-**Locations:**
-- [src/utils/crypto.rs](src/utils/crypto.rs) - `encrypt_password()` / `decrypt_password()` using AES-256-GCM
-- [src/db/models/agent.rs](src/db/models/agent.rs) - Encrypt on store, decrypt on load
-- [src/server.rs](src/server.rs) - Encryption secret initialization & plaintext migration at startup
-
-**Implementation:**
-- Passwords encrypted with AES-256-GCM before storage in SQLite
-- Encryption key derived from `jwtSecret` setting via SHA3-256
-- Random 96-bit nonce per encryption (no nonce reuse)
-- Encrypted values prefixed with `enc:` to distinguish from legacy plaintext
-- Automatic migration of existing plaintext passwords on startup
-- In-memory `Agent` structs always hold decrypted plaintext (transparent to callers)
-
-**Priority:** ~~High~~ Done
 
 ---
 
@@ -629,7 +535,8 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 1. ✅ Agent password encryption (AES-256-GCM at rest)
 2. ✅ Password validation when disabling auth
 3. ✅ YAML comment preservation (handled by frontend, no backend work needed)
-4. ⚠️ Docker CLI → SDK migration
+4. ✅ Password rehashing on bcrypt cost increase
+5. ⚠️ Docker CLI → SDK migration
 
 ### Medium Priority (Functionality)
 6. ✅ Socket state management and authentication filtering
