@@ -2,9 +2,10 @@ use crate::server::ServerContext;
 use crate::socket_handlers::{
     broadcast_to_authenticated, callback_error, callback_ok, check_login, get_endpoint,
 };
-use crate::stack::{ServiceStatus, Stack};
+use crate::stack::{ServiceStatus, Stack, StackJson};
+use crate::utils::types::CustomResponse;
 use anyhow::{anyhow, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::collections::HashMap;
@@ -567,10 +568,12 @@ async fn handle_get_stack(
 
     let stack_json = stack.to_json().await?;
 
-    Ok(json!({
-        "ok": true,
-        "stack": stack_json
-    }))
+    #[derive(Serialize)]
+    struct StackResponse {
+        stack: StackJson,
+    }
+
+    Ok(CustomResponse::ok_with_fields(StackResponse { stack: stack_json }).into())
 }
 
 async fn handle_start_stack(
@@ -658,10 +661,13 @@ async fn handle_service_status_list(
     // Convert HashMap to JSON
     let status_map: HashMap<String, ServiceStatus> = service_status_list;
 
-    Ok(json!({
-        "ok": true,
-        "serviceStatusList": status_map
-    }))
+    #[derive(Serialize)]
+    struct ServiceStatusResponse {
+        #[serde(rename = "serviceStatusList")]
+        service_status_list: HashMap<String, ServiceStatus>,
+    }
+
+    Ok(CustomResponse::ok_with_fields(ServiceStatusResponse { service_status_list: status_map }).into())
 }
 
 async fn handle_get_docker_network_list(
@@ -686,10 +692,13 @@ async fn handle_get_docker_network_list(
         .map(|line| line.to_string())
         .collect();
 
-    Ok(json!({
-        "ok": true,
-        "dockerNetworkList": networks
-    }))
+    #[derive(Serialize)]
+    struct DockerNetworkResponse {
+        #[serde(rename = "dockerNetworkList")]
+        docker_network_list: Vec<String>,
+    }
+
+    Ok(CustomResponse::ok_with_fields(DockerNetworkResponse { docker_network_list: networks }).into())
 }
 
 /// Broadcast stack list to all authenticated sockets
@@ -708,10 +717,13 @@ async fn broadcast_stack_list(ctx: &ServerContext) {
                 }
             }
 
-            let response = json!({
-                "ok": true,
-                "stackList": map,
-            });
+            #[derive(Serialize)]
+            struct StackListResponse {
+                #[serde(rename = "stackList")]
+                stack_list: HashMap<String, serde_json::Value>,
+            }
+
+            let response: serde_json::Value = CustomResponse::ok_with_fields(StackListResponse { stack_list: map }).into();
 
             // Broadcast to authenticated sockets only
             broadcast_to_authenticated(&ctx.io, "stackList", response);

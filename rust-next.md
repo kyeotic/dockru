@@ -337,21 +337,25 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 
 ### 4.3 Error Handling Consistency
 
-**Status:** Mixed patterns  
-**Location:** Throughout codebase
+**Status:** ✅ Complete - Response handling unified
+**Location:** [src/utils/types.rs](src/utils/types.rs), [src/socket_handlers/helpers.rs](src/socket_handlers/helpers.rs)
 
-**Issue:**
-- Some handlers return `Result<T>`, others return JSON directly
-- Inconsistent error response formats
-- Some use `anyhow`, some use specific error types
+**Implementation:**
+- `BaseRes` struct provides standardized response format with type safety
+- All socket handlers now use `BaseRes` for responses instead of manual `json!()`
+- Helper functions (`ok_response`, `error_response`, `error_response_i18n`) return `BaseRes`
+- `CustomResponse<T>` generic type for responses with custom fields
+- Consistent structure: `ok`, `msg`, `msgi18n`, `data` fields
+- Compile-time validation of response structure
 
-**Recommended Fix:**
-- Standardize on `Result<T, AppError>` custom error type
-- Implement `From` conversions for common errors
-- Consistent JSON error format with error codes
-- Logging at error creation point
+**Benefits:**
+- Type safety: No more raw JSON values
+- Single source of truth for API response format
+- Easier refactoring and testing
+- Self-documenting code through type definitions
+- Reduced boilerplate from manual `json!()` creation
 
-**Priority:** Low - Works but could be cleaner
+**Note:** Error type unification (custom `AppError`) is still deferred - current `anyhow::Error` approach works well
 
 ---
 

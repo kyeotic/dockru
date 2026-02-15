@@ -111,7 +111,7 @@ async fn handle_add_agent(
     Ok(ok_response(json!({
         "msg": "agentAddedSuccessfully",
         "msgi18n": true,
-    })))
+    })).into())
 }
 
 async fn handle_remove_agent(
@@ -136,7 +136,7 @@ async fn handle_remove_agent(
     Ok(ok_response(json!({
         "msg": "agentRemovedSuccessfully",
         "msgi18n": true,
-    })))
+    })).into())
 }
 
 async fn handle_agent_proxy(

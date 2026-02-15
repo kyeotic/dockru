@@ -1,4 +1,6 @@
+use crate::utils::types::BaseRes;
 use anyhow::Result;
+use serde::Serialize;
 use serde_json::{json, Value};
 use socketioxide::extract::SocketRef;
 use std::collections::HashMap;
@@ -104,29 +106,19 @@ pub fn check_login(socket: &SocketRef) -> Result<i64> {
     get_user_id(socket).ok_or_else(|| anyhow::anyhow!("You are not logged in."))
 }
 
-/// Create success response
-pub fn ok_response<T: serde::Serialize>(data: T) -> Value {
-    json!({
-        "ok": true,
-        "data": data
-    })
+/// Create success response with data
+pub fn ok_response<T: Serialize>(data: T) -> BaseRes {
+    BaseRes::ok_with_data(data)
 }
 
 /// Create error response
-pub fn error_response(msg: &str) -> Value {
-    json!({
-        "ok": false,
-        "msg": msg
-    })
+pub fn error_response(msg: &str) -> BaseRes {
+    BaseRes::error(msg)
 }
 
 /// Create error response with i18n flag
-pub fn error_response_i18n(msg: &str) -> Value {
-    json!({
-        "ok": false,
-        "msg": msg,
-        "msgi18n": true
-    })
+pub fn error_response_i18n(msg: &str) -> BaseRes {
+    BaseRes::error_i18n(msg)
 }
 
 /// Emit to socket with agent proxy support (stubbed for Phase 7)
@@ -165,13 +157,11 @@ pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data
 /// Handle callback with simple ok response
 pub fn callback_ok(callback: Option<socketioxide::extract::AckSender>, msg: &str, msgi18n: bool) {
     if let Some(ack) = callback {
-        let mut response = json!({
-            "ok": true,
-            "msg": msg,
-        });
-        if msgi18n {
-            response["msgi18n"] = json!(true);
-        }
+        let response = if msgi18n {
+            BaseRes::ok_with_msg_i18n(msg)
+        } else {
+            BaseRes::ok_with_msg(msg)
+        };
         ack.send(&response).ok();
     }
 }
@@ -179,7 +169,7 @@ pub fn callback_ok(callback: Option<socketioxide::extract::AckSender>, msg: &str
 /// Handle callback with error
 pub fn callback_error(callback: Option<socketioxide::extract::AckSender>, error: anyhow::Error) {
     if let Some(ack) = callback {
-        let response = error_response(&error.to_string());
+        let response = BaseRes::error(error.to_string());
         ack.send(&response).ok();
     }
 }

@@ -21,19 +21,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - Signed nonce system: client fetches nonce via HTTP (captures IP), uses nonce to connect socket
 - See rust-next.md section 3.5 for full design
 
-## 3. Utility Types & Response Helpers
-
-**Purpose**: Common data structures and response builders.
-
-- `src/utils/types.rs:6` - `LooseObject` type alias
-  - Flexible JSON object type (HashMap<String, JsonValue>)
-
-- `src/utils/types.rs:20` - `BaseRes::ok()` method
-- `src/utils/types.rs:29` - `BaseRes::ok_with_msg()` method
-- `src/utils/types.rs:38` - `BaseRes::error()` method
-  - Standard API response builders
-
-## 4. Rate Limiting (Future API Endpoints)
+## 3. Rate Limiting (Future API Endpoints)
 
 **Purpose**: Rate limiting for REST API endpoints (not yet implemented).
 
@@ -44,7 +32,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/rate_limiter.rs:100` - `RateLimiters::new()` method
   - Currently only login and 2FA rate limiters are actively used
 
-## 5. Constants & Status Utilities
+## 4. Constants & Status Utilities
 
 **Purpose**: Error types and status display functions.
 
@@ -56,7 +44,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/constants.rs:57` - `status_color()` function
   - Stack status display helpers for UI
 
-## 6. Database Management
+## 5. Database Management
 
 **Purpose**: Database maintenance and lifecycle operations.
 
@@ -69,7 +57,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/db/mod.rs:147` - `Database::shrink()` method
   - Run VACUUM to compact database
 
-## 7. Docker Port Parsing
+## 6. Docker Port Parsing
 
 **Purpose**: Parse and display Docker port mappings.
 
@@ -78,7 +66,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
   - Parse various Docker port formats (3000, 8000:8000, 0.0.0.0:8080->8080/tcp, etc.)
   - Convert to URL and display string
 
-## 8. Cryptography Utilities
+## 7. Cryptography Utilities
 
 **Purpose**: Random string generation, hashing, and async sleep utilities.
 
@@ -95,14 +83,14 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/crypto.rs:70` - `sleep()` async function
   - Async sleep wrapper
 
-## 9. Version Checking
+## 8. Version Checking
 
 **Purpose**: Check for software updates.
 
 - `src/check_version.rs:22` - `VersionResponse::beta` field
   - Beta release version (currently only stable/slow channel is used)
 
-## 10. Terminal Naming Utilities
+## 9. Terminal Naming Utilities
 
 **Purpose**: Generate consistent terminal names for different terminal types.
 
@@ -110,7 +98,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
   - Format: "container-{endpoint}-{container}"
   - May be used for container attach operations (vs exec which is currently used)
 
-## 11. Settings Cache Management
+## 10. Settings Cache Management
 
 **Purpose**: Settings caching with TTL and cleanup.
 
@@ -123,7 +111,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/db/models/setting.rs:294` - `Setting::delete()` method
   - Delete individual setting by key
 
-## 12. Limit Queue (Circular Buffer)
+## 11. Limit Queue (Circular Buffer)
 
 **Purpose**: Fixed-size queue for terminal output buffering.
 
@@ -137,7 +125,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/utils/limit_queue.rs:90` - `LimitQueue::limit()` method
   - Utility methods for queue management
 
-## 13. User Management (Admin Features)
+## 12. User Management (Admin Features)
 
 **Purpose**: User CRUD operations and authentication features.
 
@@ -170,7 +158,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/db/models/user.rs:232` - `User::create_jwt()` method
   - Create JWT token for user (used in auth flow)
 
-## 14. Terminal System (PTY Management)
+## 13. Terminal System (PTY Management)
 
 **Purpose**: Interactive terminal and shell access.
 
@@ -179,7 +167,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/terminal.rs:632` - Unknown (needs full file read)
   - Likely terminal lifecycle or I/O methods
 
-## 15. Agent Management (Remote Dockru Instances)
+## 14. Agent Management (Remote Dockru Instances)
 
 **Purpose**: Connect to and manage remote Dockru agents.
 

@@ -1,8 +1,9 @@
 use crate::db::models::{Setting, SettingsCache, User};
 use crate::server::ServerContext;
 use crate::socket_handlers::{callback_error, callback_ok, check_login, emit_agent};
+use crate::utils::types::{BaseRes, CustomResponse};
 use anyhow::{anyhow, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::sync::Arc;
@@ -107,10 +108,7 @@ async fn handle_get_settings(socket: &SocketRef, ctx: &ServerContext) -> Result<
     let mut data = settings;
     data.insert("globalENV".to_string(), json!(global_env));
 
-    Ok(json!({
-        "ok": true,
-        "data": data
-    }))
+    Ok(BaseRes::ok_with_data(data).into())
 }
 
 async fn handle_set_settings(
@@ -215,10 +213,13 @@ async fn handle_composerize(
         .collect::<Vec<_>>()
         .join("\n");
 
-    Ok(json!({
-        "ok": true,
-        "composeTemplate": compose_template
-    }))
+    #[derive(Serialize)]
+    struct ComposerizeResponse {
+        #[serde(rename = "composeTemplate")]
+        compose_template: String,
+    }
+
+    Ok(CustomResponse::ok_with_fields(ComposerizeResponse { compose_template }).into())
 }
 
 /// Send updated info after settings change

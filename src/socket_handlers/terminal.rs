@@ -2,8 +2,9 @@ use crate::server::ServerContext;
 use crate::socket_handlers::{callback_error, check_login, get_endpoint};
 use crate::stack::Stack;
 use crate::terminal::{Terminal, TerminalType};
+use crate::utils::types::{BaseRes, CustomResponse};
 use anyhow::{anyhow, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use std::sync::Arc;
@@ -400,9 +401,7 @@ async fn handle_main_terminal(
 
     terminal.join(socket.clone()).await?;
 
-    Ok(json!({
-        "ok": true
-    }))
+    Ok(BaseRes::ok().into())
 }
 
 async fn handle_check_main_terminal(
@@ -444,9 +443,7 @@ async fn handle_interactive_terminal(
         .join_container_terminal(socket.clone(), &data.service_name, &shell, 0)
         .await?;
 
-    Ok(json!({
-        "ok": true
-    }))
+    Ok(BaseRes::ok().into())
 }
 
 async fn handle_terminal_join(
@@ -465,10 +462,12 @@ async fn handle_terminal_join(
         String::new()
     };
 
-    Ok(json!({
-        "ok": true,
-        "buffer": buffer
-    }))
+    #[derive(Serialize)]
+    struct TerminalJoinResponse {
+        buffer: String,
+    }
+
+    Ok(CustomResponse::ok_with_fields(TerminalJoinResponse { buffer }).into())
 }
 
 async fn handle_leave_combined_terminal(
@@ -484,9 +483,7 @@ async fn handle_leave_combined_terminal(
     let stack = Stack::get_stack(ctx.clone().into(), stack_name, endpoint).await?;
     stack.leave_combined_terminal(socket.clone()).await?;
 
-    Ok(json!({
-        "ok": true
-    }))
+    Ok(BaseRes::ok().into())
 }
 
 async fn handle_terminal_resize(

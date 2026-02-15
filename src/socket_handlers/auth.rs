@@ -8,8 +8,9 @@ use crate::socket_handlers::{
     error_response_i18n, set_endpoint, set_user_id,
 };
 use crate::utils::crypto::gen_secret;
+use crate::utils::types::{BaseRes, CustomResponse};
 use anyhow::{anyhow, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use socketioxide::extract::{AckSender, Data, SocketRef};
 use sqlx::SqlitePool;
@@ -128,7 +129,7 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
                     }
                     Err(e) => {
                         warn!("Setup failed: {}", e);
-                        error_response(&e.to_string())
+                        error_response(&e.to_string()).into()
                     }
                 };
 
@@ -187,7 +188,8 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
                     }
                     Err(e) => {
                         warn!("loginByToken failed for socket {}: {}", socket.id, e);
-                        ack.send(&error_response_i18n("authInvalidToken")).ok();
+                        let response: serde_json::Value = error_response_i18n("authInvalidToken").into();
+                        ack.send(&response).ok();
                     }
                 };
             });
@@ -267,11 +269,7 @@ async fn handle_setup(
     // Broadcast that setup is complete
     broadcast_to_authenticated(&ctx.io, "setup", json!({}));
 
-    Ok(json!({
-        "ok": true,
-        "msg": "successAdded",
-        "msgi18n": true
-    }))
+    Ok(BaseRes::ok_with_msg_i18n("successAdded").into())
 }
 
 async fn handle_login(
@@ -284,7 +282,7 @@ async fn handle_login(
     let limiter = LoginRateLimiter::new();
     if limiter.check(ip).is_err() {
         info!("Login rate limit exceeded for IP: {:?}", ip);
-        return Ok(error_response_i18n("authRateLimitExceeded"));
+        return Ok(error_response_i18n("authRateLimitExceeded").into());
     }
 
     // Find and verify user
@@ -293,7 +291,7 @@ async fn handle_login(
         .ok_or_else(|| anyhow!("authIncorrectCreds"))?;
 
     if !user.verify_password(&data.password)? {
-        return Ok(error_response_i18n("authIncorrectCreds"));
+        return Ok(error_response_i18n("authIncorrectCreds").into());
     }
 
     // Check if password needs rehashing with updated cost
@@ -313,12 +311,12 @@ async fn handle_login(
             // Verify 2FA token
             let twofa_limiter = TwoFaRateLimiter::new();
             if twofa_limiter.check(ip).is_err() {
-                return Ok(error_response_i18n("authRateLimitExceeded"));
+                return Ok(error_response_i18n("authRateLimitExceeded").into());
             }
 
             // TODO: Implement 2FA verification in Phase 4 completion
             // For now, always fail if 2FA is enabled
-            return Ok(error_response_i18n("authInvalidToken"));
+            return Ok(error_response_i18n("authInvalidToken").into());
         } else {
             // 2FA token required
             return Ok(json!({
@@ -347,10 +345,12 @@ async fn handle_login(
         .ok_or_else(|| anyhow!("User has no password"))?;
     let token = create_jwt(&user.username, password_hash, jwt_secret)?;
 
-    Ok(json!({
-        "ok": true,
-        "token": token
-    }))
+    #[derive(Serialize)]
+    struct LoginResponse {
+        token: String,
+    }
+
+    Ok(CustomResponse::ok_with_fields(LoginResponse { token }).into())
 }
 
 async fn handle_login_by_token(
@@ -381,7 +381,7 @@ async fn handle_login_by_token(
         .ok_or_else(|| anyhow!("authUserInactiveOrDeleted"))?;
 
     if !user.active {
-        return Ok(error_response_i18n("authUserInactiveOrDeleted"));
+        return Ok(error_response_i18n("authUserInactiveOrDeleted").into());
     }
 
     // Verify password hash matches (detect password change)
@@ -400,9 +400,7 @@ async fn handle_login_by_token(
 
     info!("Successfully logged in user {}. IP={}", username, ip);
 
-    Ok(json!({
-        "ok": true
-    }))
+    Ok(BaseRes::ok().into())
 }
 
 async fn handle_change_password(
