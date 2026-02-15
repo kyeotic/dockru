@@ -2,29 +2,6 @@
 
 This document catalogs all `#[allow(dead_code)]` annotations in the Dockru project, grouped by intended feature.
 
-## 1. Unimplemented Socket Event Handlers
-
-**Status**: ✅ Cleaned up
-
-- `RemoveAgentData` struct - Removed (was already replaced by simpler String parameter)
-
-## 2. Socket State Management
-
-**Status**: ✅ Implemented (Issue resolved)
-
-All items in this section have been implemented:
-- IP address tracking infrastructure added (getter/setter functions)
-- Authenticated socket tracking implemented with global HashSet
-- `broadcast_to_authenticated()` now properly filters by authentication status
-- `callback_result()` removed (unused, existing patterns preferred)
-
-## 3. Stack Management Utilities
-
-**Purpose**: Docker Compose stack path operations.
-
-- `src/stack.rs:152` - `Stack::full_path()` method
-  - Returns absolute path to stack directory
-  - Currently path() method is sufficient for all use cases
 
 ## 4. Authentication & Password Management
 

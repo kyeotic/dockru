@@ -148,17 +148,6 @@ impl Stack {
         self.ctx.config.stacks_dir.join(&self.name)
     }
 
-    /// Get the full absolute path
-    #[allow(dead_code)]
-    pub fn full_path(&self) -> PathBuf {
-        let path = self.path();
-        if path.is_absolute() {
-            path
-        } else {
-            std::env::current_dir().unwrap_or_default().join(path)
-        }
-    }
-
     /// Check if this stack is managed by Dockru (has a directory in stacks_dir)
     pub async fn is_managed_by_dockru(&self) -> bool {
         let path = self.path();
