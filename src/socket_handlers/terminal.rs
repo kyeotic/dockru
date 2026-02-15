@@ -40,7 +40,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "terminalInput",
-        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match parse_terminal_input_args(&data) {
@@ -59,7 +59,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "mainTerminal",
-        move |socket: SocketRef, Data::<String>(terminal_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(terminal_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_main_terminal(&socket, &ctx, terminal_name).await {
@@ -76,7 +76,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "checkMainTerminal",
-        move |socket: SocketRef, ack: AckSender| {
+        async move |socket: SocketRef, ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_check_main_terminal(&socket, &ctx).await {
@@ -93,7 +93,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "interactiveTerminal",
-        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match parse_interactive_terminal_args(&data) {
@@ -113,7 +113,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "terminalJoin",
-        move |socket: SocketRef, Data::<String>(terminal_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(terminal_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_terminal_join(&socket, &ctx, terminal_name).await {
@@ -130,7 +130,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "leaveCombinedTerminal",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_leave_combined_terminal(&socket, &ctx, &stack_name).await {
@@ -147,7 +147,7 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "terminalResize",
-        move |socket: SocketRef, Data::<serde_json::Value>(data)| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data)| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match parse_terminal_resize_args(&data) {

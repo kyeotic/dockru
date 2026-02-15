@@ -95,7 +95,7 @@ pub fn callback_error(socket: &SocketRef, event: &str, error: &anyhow::Error) {
         "msgi18n": true,
     });
 
-    if let Err(e) = socket.emit(event.to_string(), response) {
+    if let Err(e) = socket.emit(event, &response) {
         error!("Failed to emit error callback: {}", e);
     }
 }
@@ -109,7 +109,7 @@ pub fn callback_error(socket: &SocketRef, event: &str, error: &anyhow::Error) {
 /// * `event` - Event name to emit response to
 /// * `data` - Success data to send
 pub fn callback_result(socket: &SocketRef, event: &str, data: Value) {
-    if let Err(e) = socket.emit(event.to_string(), data) {
+    if let Err(e) = socket.emit(event, &data) {
         error!("Failed to emit result callback: {}", e);
     }
 }
@@ -123,7 +123,7 @@ pub fn callback_result(socket: &SocketRef, event: &str, data: Value) {
 /// JSON value with `ok: true` and any additional data
 pub fn ok_response(data: Option<Value>) -> Value {
     let mut response = json!({ "ok": true });
-    
+
     if let Some(data_obj) = data {
         if let Some(obj) = response.as_object_mut() {
             if let Some(data_map) = data_obj.as_object() {
@@ -133,7 +133,7 @@ pub fn ok_response(data: Option<Value>) -> Value {
             }
         }
     }
-    
+
     response
 }
 

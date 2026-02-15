@@ -32,18 +32,6 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - `src/rate_limiter.rs:100` - `RateLimiters::new()` method
   - Currently only login and 2FA rate limiters are actively used
 
-## 4. Constants & Status Utilities
-
-**Purpose**: Error types and status display functions.
-
-- `src/utils/constants.rs:18` - `ERROR_TYPE_VALIDATION` constant
-  - Error type classification (not yet used)
-
-- `src/utils/constants.rs:33` - `status_name()` function
-- `src/utils/constants.rs:45` - `status_name_short()` function
-- `src/utils/constants.rs:57` - `status_color()` function
-  - Stack status display helpers for UI
-
 ## 5. Database Management
 
 **Purpose**: Database maintenance and lifecycle operations.
@@ -218,6 +206,7 @@ This document catalogs all `#[allow(dead_code)]` annotations in the Dockru proje
 - Beta version channel support
 
 ### Future/Utilities
+- ✅ Response handling types (implemented - `BaseRes`, `CustomResponse<T>`)
 - API rate limiting (REST API not implemented)
 - Docker port parsing
 - Cryptography utilities

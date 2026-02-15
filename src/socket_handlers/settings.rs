@@ -21,22 +21,25 @@ struct SetSettingsData {
 /// Setup settings event handlers
 pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
-    socket.on("getSettings", move |socket: SocketRef, ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            match handle_get_settings(&socket, &ctx).await {
-                Ok(response) => {
-                    ack.send(&response).ok();
-                }
-                Err(e) => callback_error(Some(ack), e),
-            };
-        });
-    });
+    socket.on(
+        "getSettings",
+        async move |socket: SocketRef, ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match handle_get_settings(&socket, &ctx).await {
+                    Ok(response) => {
+                        ack.send(&response).ok();
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                };
+            });
+        },
+    );
 
     let ctx_clone = ctx.clone();
     socket.on(
         "setSettings",
-        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match parse_set_settings_args(&data) {
@@ -64,7 +67,7 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "composerize",
-        move |socket: SocketRef, Data::<String>(docker_run_command), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(docker_run_command), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_composerize(&socket, &ctx, docker_run_command).await {

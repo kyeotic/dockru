@@ -390,13 +390,13 @@ impl AgentManager {
                                                     }
 
                                                     // Emit online status
-                                                    socket_ref.emit("agentStatus", json!({
+                                                    socket_ref.emit("agentStatus", &json!({
                                                         "endpoint": endpoint,
                                                         "status": "online",
                                                     })).ok();
                                                 } else {
                                                     error!("Failed to login to socket server: {}", endpoint);
-                                                    socket_ref.emit("agentStatus", json!({
+                                                    socket_ref.emit("agentStatus", &json!({
                                                         "endpoint": endpoint,
                                                         "status": "offline",
                                                     })).ok();
@@ -418,7 +418,7 @@ impl AgentManager {
                 let endpoint = endpoint_for_error.clone();
                 async move {
                     error!("Connection error from socket server: {}", endpoint);
-                    socket_ref.emit("agentStatus", json!({
+                    socket_ref.emit("agentStatus", &json!({
                         "endpoint": endpoint,
                         "status": "offline",
                     })).ok();
@@ -430,7 +430,7 @@ impl AgentManager {
                 let endpoint = endpoint_for_disconnect.clone();
                 async move {
                     info!("Disconnected from socket server: {}", endpoint);
-                    socket_ref.emit("agentStatus", json!({
+                    socket_ref.emit("agentStatus", &json!({
                         "endpoint": endpoint,
                         "status": "offline",
                     })).ok();
@@ -442,7 +442,7 @@ impl AgentManager {
                 async move {
                     // Forward agent events to the main socket
                     if let Payload::Text(values) = payload {
-                        socket_ref.emit("agent", values).ok();
+                        socket_ref.emit("agent", &values).ok();
                     }
                 }
                 .boxed()
@@ -462,7 +462,7 @@ impl AgentManager {
                                         let min_version = semver::Version::new(1, 4, 0);
                                         if version < min_version {
                                             warn!("Agent {} has unsupported version: {}", endpoint, version_str);
-                                            socket_ref.emit("agentStatus", json!({
+                                            socket_ref.emit("agentStatus", &json!({
                                                 "endpoint": endpoint,
                                                 "status": "offline",
                                                 "msg": format!("{}: Unsupported version: {}", endpoint, version_str),
@@ -498,7 +498,7 @@ impl AgentManager {
             }
             Err(e) => {
                 error!("Failed to connect to {}: {}", endpoint, e);
-                socket_ref.emit("agentStatus", json!({
+                socket_ref.emit("agentStatus", &json!({
                     "endpoint": endpoint,
                     "status": "offline",
                 })).ok();
@@ -689,7 +689,7 @@ impl AgentManager {
             }
         }
 
-        self.socket.emit("agentList", json!({
+        self.socket.emit("agentList", &json!({
             "ok": true,
             "agentList": agent_list,
         })).ok();
@@ -708,7 +708,7 @@ impl AgentManager {
             data["msg"] = json!(msg);
         }
 
-        self.socket.emit("agentStatus", data).ok();
+        self.socket.emit("agentStatus", &data).ok();
     }
 }
 

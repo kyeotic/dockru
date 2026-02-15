@@ -189,7 +189,7 @@ impl DockruServer {
 
     /// Set up Socket.IO namespace handlers (must be called after ServerContext is created)
     fn setup_socketio_handlers(io: &SocketIo, ctx: Arc<ServerContext>) {
-        io.ns("/", move |socket: SocketRef| {
+        io.ns("/", async move |socket: SocketRef| {
             info!("Socket connected: {} (transport: websocket)", socket.id);
 
             // Initialize socket state
@@ -227,7 +227,7 @@ impl DockruServer {
                     .unwrap_or(1);
                 if user_count == 0 {
                     info!("No users found, emitting 'setup' to redirect client");
-                    match socket_for_info.emit("setup", ()) {
+                    match socket_for_info.emit("setup", &()) {
                         Ok(_) => info!(
                             "'setup' event emitted successfully to {}",
                             socket_for_info.id
@@ -411,11 +411,7 @@ fn start_scheduled_tasks(ctx: Arc<ServerContext>) {
             }
 
             // Skip expensive Docker polling when no clients are connected
-            let has_clients = ctx_clone
-                .io
-                .sockets()
-                .map(|s| !s.is_empty())
-                .unwrap_or(false);
+            let has_clients = !ctx_clone.io.sockets().is_empty();
             if !has_clients {
                 debug!("No connected clients, skipping stack list broadcast");
                 continue;
@@ -457,7 +453,7 @@ async fn broadcast_stack_list_to_authenticated(ctx: &ServerContext) -> Result<()
     // Broadcast to authenticated sockets only wrapped in "agent" protocol
     // The frontend listens for socket.on("agent", (eventName, ...args) => ...)
     use crate::socket_handlers::broadcast_to_authenticated;
-    broadcast_to_authenticated(&ctx.io, "stackList", response);
+    broadcast_to_authenticated(&ctx.io, "stackList", response).await?;
 
     Ok(())
 }

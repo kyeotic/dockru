@@ -374,7 +374,8 @@ impl Terminal {
         let _ = self
             .io
             .to(room_name)
-            .emit("agent", ("terminalWrite", &self.name, data));
+            .emit("agent", &("terminalWrite", &self.name, data))
+            .await;
     }
 
     /// Spawn cleanup task for kicking disconnected clients and keep-alive
@@ -434,7 +435,8 @@ impl Terminal {
         let _ = self
             .io
             .to(room_name)
-            .emit("terminalExit", (&self.name, exit_code));
+            .emit("terminalExit", &(&self.name, exit_code))
+            .await;
 
         // Call exit callback
         let callback = {
@@ -476,9 +478,7 @@ impl Terminal {
     /// Join a socket to this terminal's room
     pub async fn join(&self, socket: SocketRef) -> Result<()> {
         let room_name = self.name.clone();
-        socket
-            .join(room_name)
-            .context("Failed to join socket to terminal room")?;
+        socket.join(room_name);
         debug!("Socket {} joined terminal {}", socket.id, self.name);
         Ok(())
     }
@@ -486,9 +486,7 @@ impl Terminal {
     /// Leave a socket from this terminal's room
     pub async fn leave(&self, socket: SocketRef) -> Result<()> {
         let room_name = self.name.clone();
-        socket
-            .leave(room_name)
-            .context("Failed to leave socket from terminal room")?;
+        socket.leave(room_name);
         debug!("Socket {} left terminal {}", socket.id, self.name);
         Ok(())
     }
@@ -534,7 +532,12 @@ impl Terminal {
             anyhow::bail!("Cannot write to non-interactive terminal");
         }
 
-        debug!("Writing to terminal {}: {:?} ({} bytes)", self.name, input, input.len());
+        debug!(
+            "Writing to terminal {}: {:?} ({} bytes)",
+            self.name,
+            input,
+            input.len()
+        );
 
         // Convert \r to \n for Unix terminals
         let normalized_input = input.replace('\r', "\n");

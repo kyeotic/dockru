@@ -9,7 +9,7 @@ rust-version = "1.75"
 tokio = { version = "1", features = ["full"] }
 
 # Socket.io server
-socketioxide = { version = "0.14", features = ["tracing"] }
+socketioxide = { version = "0.18.2", features = ["tracing"] }
 
 # HTTP server and middleware
 axum = { version = "0.7", features = ["ws"] }

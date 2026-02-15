@@ -28,31 +28,6 @@ This document catalogs features not yet implemented, known limitations, technica
 
 ---
 
-### 1.2 Password Rehashing on Cost Increase
-
-**Status:** ✅ Implemented
-**Location:** [src/auth.rs](src/auth.rs#L44), [src/socket_handlers/auth.rs](src/socket_handlers/auth.rs#L300)
-
-**Implementation:**
-- `need_rehash_password()` function extracts cost from bcrypt hash and compares to `BCRYPT_COST` constant
-- **Safe by default**: Returns `true` (needs rehash) for unparseable or malformed hashes
-- Login flow automatically rehashes passwords when cost has increased or format is invalid
-- Settings update (disableAuth) also checks and rehashes if needed
-- Allows gradual password hash upgrades without forcing password resets
-
-**How It Works:**
-1. Bcrypt hashes embed the cost factor in the hash string (e.g., `$2b$10$...`)
-2. When `BCRYPT_COST` is updated (e.g., from 10 to 12) and the app is rebuilt
-3. On next login, `need_rehash_password()` detects the mismatch
-4. User's password is automatically rehashed with the new cost and saved
-
-**Security Benefit:**
-- Allows incrementally increasing hash strength as computing power increases
-- No user action required - transparent upgrade on next authentication
-- Follows bcrypt best practices for password security maintenance
-
----
-
 ### 1.4 Local Agent Event Handling
 
 **Status:** Stubbed  
@@ -110,23 +85,6 @@ This document catalogs features not yet implemented, known limitations, technica
 
 **Priority:** Very Low - Performance acceptable for typical usage, does not run when no connections
 
----
-
-### 2.4 YAML Comment Preservation
-
-**Status:** ✅ Not needed on backend
-**Location:** [frontend/common/util-common.ts](frontend/common/util-common.ts#L233)
-
-**Analysis:**
-Comment preservation is entirely a frontend concern. The frontend's `copyYAMLComments()` 
-function (using the `yaml` npm library's `Document` AST) already preserves comments when 
-the user edits via the form UI. The backend receives the raw YAML string with comments 
-already intact and writes it directly to disk — it never parses and re-serializes during save.
-
-The Rust `copy_yaml_comments()` stub in `yaml_utils.rs` is dead code with zero callers 
-and can be removed.
-
-**Priority:** ~~High~~ Done — no backend work needed
 
 ---
 

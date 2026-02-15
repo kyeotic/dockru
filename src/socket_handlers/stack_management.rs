@@ -40,7 +40,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "deployStack",
-        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match parse_deploy_stack_args(&data) {
@@ -61,7 +61,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "saveStack",
-        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match parse_save_stack_args(&data) {
@@ -82,7 +82,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "deleteStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_delete_stack(&socket, &ctx, &stack_name).await {
@@ -100,7 +100,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "getStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_get_stack(&socket, &ctx, &stack_name).await {
@@ -117,7 +117,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "requestStackList",
-        move |socket: SocketRef, ack: AckSender| {
+        async move |socket: SocketRef, ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 if check_login(&socket).is_ok() {
@@ -132,7 +132,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "startStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_start_stack(&socket, &ctx, &stack_name).await {
@@ -150,7 +150,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "stopStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_stop_stack(&socket, &ctx, &stack_name).await {
@@ -168,7 +168,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "restartStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_restart_stack(&socket, &ctx, &stack_name).await {
@@ -186,7 +186,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "updateStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_update_stack(&socket, &ctx, &stack_name).await {
@@ -204,7 +204,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "downStack",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_down_stack(&socket, &ctx, &stack_name).await {
@@ -222,7 +222,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "serviceStatusList",
-        move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(stack_name), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_service_status_list(&socket, &ctx, &stack_name).await {
@@ -239,7 +239,7 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "getDockerNetworkList",
-        move |socket: SocketRef, ack: AckSender| {
+        async move |socket: SocketRef, ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_get_docker_network_list(&socket, &ctx).await {
@@ -667,7 +667,10 @@ async fn handle_service_status_list(
         service_status_list: HashMap<String, ServiceStatus>,
     }
 
-    Ok(CustomResponse::ok_with_fields(ServiceStatusResponse { service_status_list: status_map }).into())
+    Ok(CustomResponse::ok_with_fields(ServiceStatusResponse {
+        service_status_list: status_map,
+    })
+    .into())
 }
 
 async fn handle_get_docker_network_list(
@@ -698,7 +701,10 @@ async fn handle_get_docker_network_list(
         docker_network_list: Vec<String>,
     }
 
-    Ok(CustomResponse::ok_with_fields(DockerNetworkResponse { docker_network_list: networks }).into())
+    Ok(CustomResponse::ok_with_fields(DockerNetworkResponse {
+        docker_network_list: networks,
+    })
+    .into())
 }
 
 /// Broadcast stack list to all authenticated sockets
@@ -723,10 +729,13 @@ async fn broadcast_stack_list(ctx: &ServerContext) {
                 stack_list: HashMap<String, serde_json::Value>,
             }
 
-            let response: serde_json::Value = CustomResponse::ok_with_fields(StackListResponse { stack_list: map }).into();
+            let response: serde_json::Value =
+                CustomResponse::ok_with_fields(StackListResponse { stack_list: map }).into();
 
             // Broadcast to authenticated sockets only
-            broadcast_to_authenticated(&ctx.io, "stackList", response);
+            if let Err(e) = broadcast_to_authenticated(&ctx.io, "stackList", response).await {
+                debug!("Failed to broadcast stack list: {}", e);
+            }
         }
         Err(e) => {
             debug!("Failed to get stack list for broadcast: {}", e);

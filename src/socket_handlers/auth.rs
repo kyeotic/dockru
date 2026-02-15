@@ -42,27 +42,30 @@ struct ChangePasswordData {
 pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     // Check if setup is needed
     let ctx_clone = ctx.clone();
-    socket.on("needSetup", move |socket: SocketRef, ack: AckSender| {
-        let ctx = ctx_clone.clone();
-        info!("'needSetup' event from socket {}", socket.id);
-        tokio::spawn(async move {
-            let user_count = User::count(&ctx.db).await.unwrap_or(0);
-            let need_setup = user_count == 0;
-            info!(
-                "needSetup response: {} (user_count={})",
-                need_setup, user_count
-            );
-            match ack.send(&need_setup) {
-                Ok(_) => info!("needSetup ack sent successfully"),
-                Err(e) => warn!("needSetup ack failed: {:?}", e),
-            }
-        });
-    });
+    socket.on(
+        "needSetup",
+        async move |socket: SocketRef, ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            info!("'needSetup' event from socket {}", socket.id);
+            tokio::spawn(async move {
+                let user_count = User::count(&ctx.db).await.unwrap_or(0);
+                let need_setup = user_count == 0;
+                info!(
+                    "needSetup response: {} (user_count={})",
+                    need_setup, user_count
+                );
+                match ack.send(&need_setup) {
+                    Ok(_) => info!("needSetup ack sent successfully"),
+                    Err(e) => warn!("needSetup ack failed: {:?}", e),
+                }
+            });
+        },
+    );
 
     let ctx_clone = ctx.clone();
     socket.on(
         "setup",
-        move |socket: SocketRef, Data::<serde_json::Value>(raw_data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(raw_data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             info!("=== Setup event received ===");
             info!(
@@ -145,7 +148,7 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "login",
-        move |socket: SocketRef, Data::<LoginData>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<LoginData>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             info!(
                 "'login' event from socket {} for user '{}'",
@@ -172,7 +175,7 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "loginByToken",
-        move |socket: SocketRef, Data::<String>(token), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(token), ack: AckSender| {
             let ctx = ctx_clone.clone();
             info!("'loginByToken' event from socket {}", socket.id);
             tokio::spawn(async move {
@@ -188,7 +191,8 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
                     }
                     Err(e) => {
                         warn!("loginByToken failed for socket {}: {}", socket.id, e);
-                        let response: serde_json::Value = error_response_i18n("authInvalidToken").into();
+                        let response: serde_json::Value =
+                            error_response_i18n("authInvalidToken").into();
                         ack.send(&response).ok();
                     }
                 };
@@ -199,7 +203,7 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "changePassword",
-        move |socket: SocketRef, Data::<ChangePasswordData>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<ChangePasswordData>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 if let Err(e) = handle_change_password(&socket, &ctx, data).await {
@@ -212,14 +216,17 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     );
 
     let ctx_clone = ctx.clone();
-    socket.on("disconnectOtherSocketClients", move |socket: SocketRef| {
-        let ctx = ctx_clone.clone();
-        tokio::spawn(async move {
-            if let Err(e) = handle_disconnect_others(&socket, &ctx).await {
-                warn!("disconnectOtherSocketClients error: {}", e);
-            }
-        });
-    });
+    socket.on(
+        "disconnectOtherSocketClients",
+        async move |socket: SocketRef| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                if let Err(e) = handle_disconnect_others(&socket, &ctx).await {
+                    warn!("disconnectOtherSocketClients error: {}", e);
+                }
+            });
+        },
+    );
 
     // Note: disconnect handler is registered in server.rs setup_socketio_handlers()
     // to avoid duplicate handler registration
@@ -267,7 +274,7 @@ async fn handle_setup(
     }
 
     // Broadcast that setup is complete
-    broadcast_to_authenticated(&ctx.io, "setup", json!({}));
+    broadcast_to_authenticated(&ctx.io, "setup", json!({})).await?;
 
     Ok(BaseRes::ok_with_msg_i18n("successAdded").into())
 }
@@ -433,14 +440,14 @@ async fn handle_change_password(
     user.update_password(&ctx.db, &data.new_password).await?;
 
     // Disconnect all other sessions
-    disconnect_all_other_sockets(ctx, user_id, &socket.id.to_string()).await;
+    disconnect_all_other_sockets(ctx, user_id, &socket.id.to_string()).await?;
 
     Ok(())
 }
 
 async fn handle_disconnect_others(socket: &SocketRef, ctx: &ServerContext) -> Result<()> {
     let user_id = check_login(socket)?;
-    disconnect_all_other_sockets(ctx, user_id, &socket.id.to_string()).await;
+    disconnect_all_other_sockets(ctx, user_id, &socket.id.to_string()).await?;
     Ok(())
 }
 
@@ -453,7 +460,7 @@ async fn after_login(socket: &SocketRef, ctx: &ServerContext, user: &User) -> Re
     add_authenticated_socket(socket);
 
     // Join user room for broadcasting
-    socket.join(user.id.to_string()).ok();
+    socket.join(user.id.to_string());
 
     // Set endpoint from request headers or default to empty
     let endpoint = extract_endpoint(socket).unwrap_or_default();
@@ -496,17 +503,23 @@ fn extract_endpoint(_socket: &SocketRef) -> Option<String> {
 }
 
 /// Disconnect all sockets for a user except the current one
-async fn disconnect_all_other_sockets(ctx: &ServerContext, user_id: i64, except_socket_id: &str) {
+async fn disconnect_all_other_sockets(
+    ctx: &ServerContext,
+    user_id: i64,
+    except_socket_id: &str,
+) -> Result<()> {
     // TODO Phase 7: Implement socket iteration and disconnection
     // For now, emit refresh to the user room
     ctx.io
         .to(user_id.to_string())
-        .emit("refresh", json!({}))
-        .ok();
+        .emit("refresh", &json!({}))
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to disconnect other sockets: {}", e))?;
     debug!(
         "Disconnected other sockets for user {} except {}",
         user_id, except_socket_id
     );
+    Ok(())
 }
 
 /// Initialize JWT secret in database if not exists

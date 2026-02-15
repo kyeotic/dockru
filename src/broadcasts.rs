@@ -32,7 +32,7 @@ pub async fn send_info(socket: &SocketRef, ctx: &ServerContext, hide_version: bo
         "primaryHostname": primary_hostname,
     });
 
-    socket.emit("info", info).ok();
+    socket.emit("info", &info).ok();
 
     debug!("Sent info to socket {}", socket.id);
 

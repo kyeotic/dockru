@@ -1,8 +1,6 @@
 use crate::agent_manager;
 use crate::server::ServerContext;
-use crate::socket_handlers::{
-    callback_error, check_login, get_endpoint, ok_response,
-};
+use crate::socket_handlers::{callback_error, check_login, get_endpoint, ok_response};
 use crate::utils::ALL_ENDPOINTS;
 use anyhow::anyhow;
 use serde::Deserialize;
@@ -27,7 +25,7 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "addAgent",
-        move |socket: SocketRef, Data::<AddAgentData>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<AddAgentData>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_add_agent(&socket, &ctx, data).await {
@@ -44,7 +42,7 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "removeAgent",
-        move |socket: SocketRef, Data::<String>(url), ack: AckSender| {
+        async move |socket: SocketRef, Data::<String>(url), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 match handle_remove_agent(&socket, &ctx, &url).await {
@@ -62,7 +60,7 @@ pub fn setup_agent_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx;
     socket.on(
         "agent",
-        move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
                 if let Err(e) = handle_agent_proxy(&socket, &ctx, data, ack).await {
@@ -111,7 +109,8 @@ async fn handle_add_agent(
     Ok(ok_response(json!({
         "msg": "agentAddedSuccessfully",
         "msgi18n": true,
-    })).into())
+    }))
+    .into())
 }
 
 async fn handle_remove_agent(
@@ -136,7 +135,8 @@ async fn handle_remove_agent(
     Ok(ok_response(json!({
         "msg": "agentRemovedSuccessfully",
         "msgi18n": true,
-    })).into())
+    }))
+    .into())
 }
 
 async fn handle_agent_proxy(

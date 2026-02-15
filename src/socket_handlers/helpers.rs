@@ -97,7 +97,7 @@ pub fn set_ip_address(socket: &SocketRef, ip_address: Option<String>) {
 
 /// Mark a socket as authenticated by joining it to the authenticated room
 pub fn add_authenticated_socket(socket: &SocketRef) {
-    socket.join(AUTHENTICATED_ROOM).ok();
+    socket.join(AUTHENTICATED_ROOM);
     debug!("Socket {} joined authenticated room", socket.id);
 }
 
@@ -146,12 +146,18 @@ pub fn emit_agent(socket: &SocketRef, event: &str, data: Value) -> Result<()> {
 }
 
 /// Broadcast to all authenticated sockets, wrapped in the "agent" protocol.
-pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data: Value) {
+pub async fn broadcast_to_authenticated(
+    io: &socketioxide::SocketIo,
+    event: &str,
+    data: Value,
+) -> Result<()> {
     // Emit to the authenticated room
     io.to(AUTHENTICATED_ROOM)
-        .emit("agent", (event, &data))
-        .ok();
+        .emit("agent", &(event, &data))
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to broadcast to authenticated sockets: {}", e))?;
     debug!("Broadcasted agent/{} to authenticated sockets", event);
+    Ok(())
 }
 
 /// Handle callback with simple ok response
