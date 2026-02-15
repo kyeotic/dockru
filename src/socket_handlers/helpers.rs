@@ -153,15 +153,6 @@ pub fn emit_agent(socket: &SocketRef, event: &str, data: Value) -> Result<()> {
     Ok(())
 }
 
-/// Emit an agent event to all connected sockets via the SocketIo broadcast.
-/// Kept for broadcasting to ALL sockets (authenticated and unauthenticated).
-/// Use broadcast_to_authenticated() for authenticated-only broadcasts.
-#[allow(dead_code)]
-pub fn broadcast_agent(io: &socketioxide::SocketIo, event: &str, data: Value) {
-    io.emit("agent", (event, &data)).ok();
-    debug!("Broadcasted agent/{} to all sockets", event);
-}
-
 /// Broadcast to all authenticated sockets, wrapped in the "agent" protocol.
 pub fn broadcast_to_authenticated(io: &socketioxide::SocketIo, event: &str, data: Value) {
     // Emit to the authenticated room
