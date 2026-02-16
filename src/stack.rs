@@ -93,16 +93,6 @@ struct ComposeListItem {
     config_files: String,
 }
 
-/// Docker compose ps output format
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct ComposePsItem {
-    service: String,
-    state: String,
-    health: String,
-    ports: String,
-}
-
 impl Stack {
     /// Create a new Stack instance
     ///
@@ -557,12 +547,32 @@ impl Stack {
 
     /// Update the status of this stack
     pub async fn update_status(&mut self) -> Result<()> {
-        let status_list = Self::get_status_list(self.ctx.clone()).await?;
+        // Use bollard to check container status for this specific project
+        let containers = crate::docker_client::list_containers_by_project(&self.ctx.docker, &self.name)
+            .await
+            .unwrap_or_default(); // Treat errors as no containers
 
-        if let Some(&status) = status_list.get(&self.name) {
-            self.status = status;
-        } else {
+        if containers.is_empty() {
             self.status = UNKNOWN;
+        } else {
+            // Determine status from container states
+            let has_running = containers.iter().any(|c| {
+                c.state.as_ref().map(|s| s == "running").unwrap_or(false)
+            });
+            let has_exited = containers.iter().any(|c| {
+                c.state
+                    .as_ref()
+                    .map(|s| s.contains("exited"))
+                    .unwrap_or(false)
+            });
+
+            self.status = if has_running {
+                RUNNING
+            } else if has_exited {
+                EXITED
+            } else {
+                CREATED_STACK
+            };
         }
 
         Ok(())
@@ -570,55 +580,11 @@ impl Stack {
 
     /// Get service status list for this stack
     pub async fn get_service_status_list(&self) -> Result<HashMap<String, ServiceStatus>> {
-        let mut status_list = HashMap::new();
-
-        let options = self.get_compose_options("ps", &["--format", "json"]);
-
-        let output = Command::new("docker")
-            .args(&options)
-            .current_dir(self.path())
-            .output()
+        let containers = crate::docker_client::list_containers_by_project(&self.ctx.docker, &self.name)
             .await
-            .context("Failed to run docker compose ps")?;
+            .context("Failed to get service status")?;
 
-        if !output.status.success() {
-            warn!("docker compose ps failed for stack {}", self.name);
-            return Ok(status_list);
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        // Parse each line as JSON
-        for line in stdout.lines() {
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            match serde_json::from_str::<ComposePsItem>(line) {
-                Ok(item) => {
-                    // Filter ports to only those with -> (port mappings)
-                    let ports: Vec<String> = item
-                        .ports
-                        .split(", ")
-                        .filter(|s| s.contains("->"))
-                        .map(|s| s.to_string())
-                        .collect();
-
-                    let state = if !item.health.is_empty() {
-                        item.health
-                    } else {
-                        item.state
-                    };
-
-                    status_list.insert(item.service, ServiceStatus { state, ports });
-                }
-                Err(e) => {
-                    warn!("Failed to parse compose ps output line: {} - {}", line, e);
-                }
-            }
-        }
-
-        Ok(status_list)
+        Ok(crate::docker_client::map_to_service_status(containers))
     }
 
     /// Join the combined terminal (docker compose logs -f --tail 100)
@@ -732,36 +698,6 @@ impl Stack {
         }
 
         false
-    }
-
-    /// Get the status list from docker compose ls
-    pub async fn get_status_list(_ctx: Arc<ServerContext>) -> Result<HashMap<String, i32>> {
-        let mut status_list = HashMap::new();
-
-        let output = Command::new("docker")
-            .args(["compose", "ls", "--all", "--format", "json"])
-            .output()
-            .await
-            .context("Failed to run docker compose ls")?;
-
-        if !output.status.success() {
-            return Ok(status_list);
-        }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        match serde_json::from_str::<Vec<ComposeListItem>>(&stdout) {
-            Ok(compose_list) => {
-                for item in compose_list {
-                    status_list.insert(item.name, Self::status_convert(&item.status));
-                }
-            }
-            Err(e) => {
-                warn!("Failed to parse docker compose ls output: {}", e);
-            }
-        }
-
-        Ok(status_list)
     }
 
     /// Get a single stack by name

@@ -12,6 +12,7 @@ use axum::{
     routing::get,
     Router,
 };
+use bollard::Docker;
 use socketioxide::{extract::SocketRef, SocketIo, TransportType};
 use sqlx::SqlitePool;
 use std::{fs, path::PathBuf, sync::Arc};
@@ -33,6 +34,8 @@ pub struct ServerContext {
     /// Secret used to encrypt/decrypt agent passwords at rest.
     /// Derived from the jwtSecret setting; empty until setup is complete.
     pub encryption_secret: Arc<std::sync::RwLock<String>>,
+    /// Docker client for API operations
+    pub docker: Docker,
 }
 
 impl ServerContext {
@@ -42,6 +45,7 @@ impl ServerContext {
         db: SqlitePool,
         cache: SettingsCache,
         version_checker: VersionChecker,
+        docker: Docker,
     ) -> Self {
         Self {
             config,
@@ -51,6 +55,7 @@ impl ServerContext {
             version_checker,
             broadcast_notify: Arc::new(tokio::sync::Notify::new()),
             encryption_secret: Arc::new(std::sync::RwLock::new(String::new())),
+            docker,
         }
     }
 
@@ -309,6 +314,12 @@ pub async fn serve(config: Config) -> Result<()> {
     // Create version checker
     let version_checker = VersionChecker::new(env!("CARGO_PKG_VERSION").to_string());
 
+    // Connect to Docker daemon
+    let docker = Docker::connect_with_local_defaults()
+        .context("Failed to connect to Docker daemon")?;
+
+    info!("Connected to Docker daemon");
+
     // Create Socket.IO layer first (with transport config)
     let (io, socket_layer) = server.create_socketio_layer();
 
@@ -319,6 +330,7 @@ pub async fn serve(config: Config) -> Result<()> {
         db.pool().clone(),
         cache,
         version_checker,
+        docker,
     ));
 
     // Initialize encryption secret from jwtSecret setting (if app has been set up)

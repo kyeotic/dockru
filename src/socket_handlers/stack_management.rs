@@ -675,25 +675,12 @@ async fn handle_service_status_list(
 
 async fn handle_get_docker_network_list(
     socket: &SocketRef,
-    _ctx: &ServerContext,
+    ctx: &ServerContext,
 ) -> Result<serde_json::Value> {
     check_login(socket)?;
 
-    // Run docker network ls command
-    let output = tokio::process::Command::new("docker")
-        .args(["network", "ls", "--format", "{{.Name}}"])
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        return Err(anyhow!("Failed to get docker network list"));
-    }
-
-    let networks: Vec<String> = String::from_utf8(output.stdout)?
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(|line| line.to_string())
-        .collect();
+    // Get networks via Docker API
+    let networks = crate::docker_client::list_networks(&ctx.docker).await?;
 
     #[derive(Serialize)]
     struct DockerNetworkResponse {

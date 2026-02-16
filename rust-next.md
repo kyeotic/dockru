@@ -46,24 +46,6 @@ This document catalogs features not yet implemented, known limitations, technica
 
 ---
 
-### 1.5 Docker Network List
-
-**Status:** Basic implementation  
-**Location:** [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs#L418)
-
-**Current Behavior:**
-- Runs `docker network ls --format {{.Name}}`
-- Returns only network names, no additional metadata
-
-**What's Needed:**
-- Return network driver, scope, labels
-- Parse JSON format for richer data
-- Or use Docker SDK for proper API access
-
-**Priority:** Low - Works for basic use case
-
----
-
 ## 2. TODOs and Partial Implementations
 ---
 
@@ -223,28 +205,35 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 
 ### 4.2 Docker CLI vs SDK
 
-**Status:** Using CLI, SDK would be better  
-**Location:** Throughout [src/stack.rs](src/stack.rs)
+**Status:** ✅ Partially Migrated (Hybrid Approach)
+**Location:** [src/docker_client.rs](src/docker_client.rs), [src/stack.rs](src/stack.rs), [src/socket_handlers/stack_management.rs](src/socket_handlers/stack_management.rs)
 
-**Issue:**
-- All Docker operations shell out to `docker` CLI
-- Parsing text output (brittle)
-- Higher overhead than API calls
-- Limited error handling
+**Completed:**
+- ✅ Network operations use Bollard API (`docker_client::list_networks()`)
+- ✅ Container status queries use Bollard API (`docker_client::list_containers_by_project()`)
+- ✅ Stack status updates use Bollard API (direct container queries)
+- ✅ Better error messages from Docker daemon (HTTP status codes)
+- ✅ Docker client initialized in ServerContext
 
-**Recommended Fix:**
-- Integrate Docker SDK/API client (e.g., `bollard` crate)
-- Direct API calls instead of CLI commands
-- Richer error information
-- Better performance
+**Retained CLI:**
+- Docker Compose orchestration (up/down/restart) - no API equivalent
+- Docker Compose project listing (`docker compose ls`)
+- Interactive terminals (logs -f, exec) - require PTY
 
-**Benefits:**
-- More reliable (no output parsing)
-- Faster execution (no shell overhead)
-- Better error messages
+**Benefits Achieved:**
+- Faster network/status queries (no shell overhead, direct API calls)
+- More reliable (structured API responses vs text parsing)
+- Better error messages (structured errors from Docker daemon)
 - Programmatic container management
 
-**Priority:** High - Current approach works but fragile
+**Technical Debt Remaining:**
+- Consider Docker events for real-time status updates (polling optimization)
+- Potential log streaming via Bollard (vs PTY logs)
+
+**Rationale:**
+Docker Compose is CLI-only (not part of Docker daemon API). Bollard provides the Docker Engine API, but Docker Compose orchestration (`docker compose up/down/restart`) requires the CLI. This hybrid approach uses Bollard for information-gathering (networks, containers, status) and keeps the CLI for orchestration operations that have no API equivalent.
+
+**Priority:** Medium - Core operations migrated, further optimization optional
 
 ---
 
@@ -431,7 +420,7 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 2. ✅ Password validation when disabling auth
 3. ✅ YAML comment preservation (handled by frontend, no backend work needed)
 4. ✅ Password rehashing on bcrypt cost increase
-5. ⚠️ Docker CLI → SDK migration
+5. ✅ Docker CLI → SDK migration (hybrid approach complete)
 
 ### Medium Priority (Functionality)
 6. ✅ Socket state management and authentication filtering
@@ -449,10 +438,9 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 15. Various performance optimizations
 16. Beta version channel support
 17. Local agent event handling
-18. Docker network list enrichment
-19. Docker container detection
-20. Error handling consistency
-21. API documentation
+18. Docker container detection
+19. Error handling consistency
+20. API documentation
 
 ---
 
@@ -474,7 +462,7 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 ### Long-Term (Future Versions)
 1. Two-factor authentication
 2. ✅ Interactive container terminals
-3. Docker SDK migration
+3. ✅ Docker SDK migration (hybrid approach complete)
 4. Performance optimizations (as needed)
 5. ✅ Advanced features (composerize)
 
@@ -503,5 +491,5 @@ When implementing items from this document:
 
 ---
 
-*Last updated: February 15, 2026*
-*Based on: Phase 10 completion + terminal keep-alive implementation*
+*Last updated: February 16, 2026*
+*Based on: Docker CLI to Bollard SDK hybrid migration complete*

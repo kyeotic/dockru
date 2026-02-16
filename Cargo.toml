@@ -117,6 +117,9 @@ redact = { version = "0.1.11", features = ["serde"] }
 # Docker run to compose conversion
 composerize-np = "0.2"
 
+# Docker SDK for programmatic Docker operations
+bollard = "0.17"
+
 [dev-dependencies]
 tempfile = "3.10"
 uuid = { version = "1.10", features = ["v4"] }
