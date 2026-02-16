@@ -1,5 +1,5 @@
 <div align="center" width="100%">
-    <img src="./frontend/public/dockru.png" width="128" alt="" />
+    <img src="./frontend/public/icon.svg" width="128" alt="" />
 </div>
 
 # Dockru
