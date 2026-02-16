@@ -65,82 +65,26 @@ pub fn setup_auth_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "setup",
-        async move |socket: SocketRef, Data::<serde_json::Value>(raw_data), ack: AckSender| {
+        async move |socket: SocketRef, Data::<SetupData>(data), ack: AckSender| {
             let ctx = ctx_clone.clone();
-            info!("=== Setup event received ===");
             info!(
-                "Raw data type: {}",
-                if raw_data.is_array() {
-                    "array"
-                } else if raw_data.is_object() {
-                    "object"
-                } else if raw_data.is_string() {
-                    "string"
-                } else {
-                    "other"
-                }
+                "'setup' event from socket {} for user '{}'",
+                socket.id, data.username
             );
-            info!("Raw data value: {:?}", raw_data);
-
             tokio::spawn(async move {
-                info!("Starting setup processing...");
-                // Socket.IO sends multiple arguments as an array
-                let (username, password) = if let Some(arr) = raw_data.as_array() {
-                    if arr.len() >= 2 {
-                        let user = arr[0].as_str().unwrap_or("").to_string();
-                        let pass = arr[1].as_str().unwrap_or("").to_string();
-                        info!(
-                            "Parsed from array - username: {}, password length: {}",
-                            user,
-                            pass.len()
-                        );
-                        (user, pass)
-                    } else {
-                        warn!("Array has fewer than 2 elements: {}", arr.len());
-                        ack.send(&error_response("Invalid data format")).ok();
-                        return;
-                    }
-                } else {
-                    // Try parsing as tuple
-                    match serde_json::from_value::<(String, String)>(raw_data.clone()) {
-                        Ok((user, pass)) => {
-                            info!(
-                                "Parsed as tuple - username: {}, password length: {}",
-                                user,
-                                pass.len()
-                            );
-                            (user, pass)
+                match handle_setup(&socket, &ctx, data).await {
+                    Ok(response) => {
+                        info!("Setup handler succeeded for socket {}", socket.id);
+                        match ack.send(&response) {
+                            Ok(_) => info!("Setup ack sent to socket {}", socket.id),
+                            Err(e) => warn!("Setup ack failed for socket {}: {:?}", socket.id, e),
                         }
-                        Err(e) => {
-                            warn!("Failed to parse: {}. Raw data was: {:?}", e, raw_data);
-                            ack.send(&error_response(&format!("Invalid data format: {}", e)))
-                                .ok();
-                            return;
-                        }
-                    }
-                };
-
-                info!("Calling handle_setup...");
-                let setup_data = SetupData { username, password };
-                let result = handle_setup(&socket, &ctx, setup_data).await;
-                info!("handle_setup returned: {:?}", result.is_ok());
-
-                let response = match result {
-                    Ok(resp) => {
-                        info!("Setup successful, response: {:?}", resp);
-                        resp
                     }
                     Err(e) => {
-                        warn!("Setup failed: {}", e);
-                        error_response(&e.to_string()).into()
+                        warn!("Setup handler failed for socket {}: {}", socket.id, e);
+                        ack.send(&error_response(&e.to_string())).ok();
                     }
                 };
-
-                info!("About to send ack with response: {:?}", response);
-                match ack.send(&response) {
-                    Ok(_) => info!("✓ Acknowledgment sent successfully"),
-                    Err(e) => warn!("✗ Failed to send acknowledgment: {:?}", e),
-                }
             });
         },
     );

@@ -126,9 +126,15 @@ export default {
 
             this.$root
                 .getSocket()
-                .emit("setup", this.username, this.password, (res) => {
-                    this.processing = false;
-                    this.$root.toastRes(res);
+                .emit(
+                    "setup",
+                    {
+                        username: this.username,
+                        password: this.password,
+                    },
+                    (res) => {
+                        this.processing = false;
+                        this.$root.toastRes(res);
 
                     if (res.ok) {
                         this.processing = true;
