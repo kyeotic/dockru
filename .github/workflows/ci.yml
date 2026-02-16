@@ -8,8 +8,8 @@ on:
       - 'src/**'
       - 'docker/**'
       - 'frontend/**'
-      - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'Cargo.toml'
       - '.github/workflows/ci.yml'
 
 permissions:

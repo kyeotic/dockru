@@ -12,7 +12,7 @@ frontend-dist
 
 # Rust
 /target
-Cargo.lock
+# Cargo.lock
 
 
 /data/

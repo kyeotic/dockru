@@ -1,0 +1,161 @@
+#!/bin/bash
+set -e
+
+# Usage:
+
+# Interactive mode (with prompts):
+# curl -sSL https://raw.githubusercontent.com/kyeotic/dockru/main/install | sudo bash
+
+# Non-interactive mode (with env vars):
+# curl -sSL https://raw.githubusercontent.com/kyeotic/dockru/main/install | \
+#   DOCKRU_DIR=/opt/dockru STACKS_DIR=/opt/stacks PORT=5051 sudo bash
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Print colored message
+print_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root (needed for /opt directories)
+check_root() {
+    if [ "$EUID" -ne 0 ] && [[ "$DOCKRU_DIR" == /opt/* || "$STACKS_DIR" == /opt/* ]]; then
+        print_warn "Installation to /opt directories typically requires root privileges"
+        print_warn "You may need to run: curl -sSL <url> | sudo bash"
+    fi
+}
+
+# Check dependencies
+check_dependencies() {
+    print_info "Checking dependencies..."
+
+    if ! command -v docker &> /dev/null; then
+        print_error "Docker is not installed. Please install Docker first:"
+        echo "  https://docs.docker.com/get-docker/"
+        exit 1
+    fi
+
+    if ! command -v docker compose &> /dev/null && ! command -v docker-compose &> /dev/null; then
+        print_error "Docker Compose is not installed. Please install Docker Compose first:"
+        echo "  https://docs.docker.com/compose/install/"
+        exit 1
+    fi
+
+    print_info "Dependencies check passed"
+}
+
+# Get user input with default
+prompt_with_default() {
+    local prompt="$1"
+    local default="$2"
+    local var_name="$3"
+
+    if [ -n "${!var_name}" ]; then
+        # Variable already set via environment
+        echo -e "${GREEN}${prompt}:${NC} ${!var_name} (from environment)"
+    else
+        read -p "$(echo -e ${GREEN}${prompt}${NC} [${default}]: )" input
+        if [ -z "$input" ]; then
+            eval "$var_name='$default'"
+        else
+            eval "$var_name='$input'"
+        fi
+    fi
+}
+
+# Main installation
+main() {
+    echo "╔══════════════════════════════════════════╗"
+    echo "║     Dockru Installation Script           ║"
+    echo "╚══════════════════════════════════════════╝"
+    echo ""
+
+    check_dependencies
+
+    # Get installation parameters
+    print_info "Configuration"
+    echo ""
+
+    prompt_with_default "Dockru directory" "/opt/dockru" "DOCKRU_DIR"
+    prompt_with_default "Stacks directory" "/opt/stacks" "STACKS_DIR"
+    prompt_with_default "Port" "5051" "PORT"
+
+    echo ""
+    check_root
+
+    # Validate port
+    if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+        print_error "Invalid port number: $PORT"
+        exit 1
+    fi
+
+    # Create directories
+    print_info "Creating directories..."
+    mkdir -p "$DOCKRU_DIR"
+    mkdir -p "$STACKS_DIR"
+
+    # Download compose.yaml
+    print_info "Downloading compose.yaml..."
+    COMPOSE_URL="https://raw.githubusercontent.com/kyeotic/dockru/refs/heads/main/docker/compose.yaml"
+
+    if ! curl -fsSL "$COMPOSE_URL" -o "$DOCKRU_DIR/compose.yaml"; then
+        print_error "Failed to download compose.yaml"
+        exit 1
+    fi
+
+    # Modify compose.yaml with user's configuration
+    print_info "Configuring compose.yaml..."
+
+    # Update port mapping
+    sed -i "s|- 5001:5001|- ${PORT}:5001|g" "$DOCKRU_DIR/compose.yaml"
+
+    # Update stacks directory volume mapping
+    sed -i "s|- /opt/stacks:/opt/stacks|- ${STACKS_DIR}:${STACKS_DIR}|g" "$DOCKRU_DIR/compose.yaml"
+
+    # Update DOCKRU_STACKS_DIR environment variable
+    sed -i "s|DOCKRU_STACKS_DIR=/opt/stacks|DOCKRU_STACKS_DIR=${STACKS_DIR}|g" "$DOCKRU_DIR/compose.yaml"
+
+    # Change to dockru directory
+    cd "$DOCKRU_DIR"
+
+    # Start the server
+    print_info "Starting Dockru..."
+
+    if command -v docker compose &> /dev/null; then
+        docker compose up -d
+    else
+        docker-compose up -d
+    fi
+
+    # Installation complete
+    echo ""
+    echo "╔══════════════════════════════════════════╗"
+    echo "║     Installation Complete! 🎉            ║"
+    echo "╚══════════════════════════════════════════╝"
+    echo ""
+    print_info "Dockru is now running at: http://localhost:${PORT}"
+    print_info "Dockru directory: $DOCKRU_DIR"
+    print_info "Stacks directory: $STACKS_DIR"
+    echo ""
+    print_info "To manage Dockru:"
+    echo "  cd $DOCKRU_DIR"
+    echo "  docker compose logs -f    # View logs"
+    echo "  docker compose restart    # Restart"
+    echo "  docker compose stop       # Stop"
+    echo "  docker compose down       # Remove"
+    echo ""
+}
+
+main
