@@ -1,6 +1,7 @@
 services:
   dockru:
     image: ghcr.io/kyeotic/dockru:latest
+    container_name: dockru
     restart: unless-stopped
     ports:
       # Host Port : Container Port
