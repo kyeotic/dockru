@@ -486,8 +486,12 @@ impl Terminal {
     /// Leave a socket from this terminal's room
     pub async fn leave(&self, socket: SocketRef) -> Result<()> {
         let room_name = self.name.clone();
-        socket.leave(room_name);
+        socket.leave(room_name.clone());
         debug!("Socket {} left terminal {}", socket.id, self.name);
+
+        // Schedule terminal closure if room became empty
+        schedule_terminal_closure_if_empty(self.io.clone(), room_name).await;
+
         Ok(())
     }
 
@@ -506,8 +510,8 @@ impl Terminal {
     pub async fn close(&self) -> Result<()> {
         let mut inner = self.inner.lock().await;
 
-        if let Some(ref pty_pair) = inner.pty_pair {
-            let mut writer = pty_pair.master.take_writer()?;
+        // Use the stored writer instead of taking it from pty_pair
+        if let Some(ref mut writer) = inner.pty_writer {
             writer.write_all(b"\x03")?; // Ctrl+C
             writer.flush()?;
         }
@@ -648,6 +652,74 @@ impl Terminal {
         let registry = TERMINAL_REGISTRY.read().await;
         registry.len()
     }
+}
+
+/// Schedule terminal closure if its room is empty
+///
+/// This function checks if a terminal's room is empty and schedules a delayed
+/// closure check. It's used by both explicit leave operations and disconnect handlers.
+///
+/// # Arguments
+/// * `io` - Socket.io instance for checking room membership
+/// * `room_name` - Name of the terminal/room to check
+pub async fn schedule_terminal_closure_if_empty(io: socketioxide::SocketIo, room_name: String) {
+    // Only schedule closure check if room is actually empty now
+    if io.within(room_name.clone()).sockets().is_empty() {
+        debug!("Terminal {} room is empty, scheduling closure check", room_name);
+
+        tokio::spawn(async move {
+            // Wait to avoid race conditions with reconnects
+            tokio::time::sleep(Duration::from_millis(500)).await;
+
+            debug!("Checking if terminal {} room is still empty after delay", room_name);
+
+            // Double-check room is still empty
+            if io.within(room_name.clone()).sockets().is_empty() {
+                debug!("Terminal {} room is still empty, attempting to close", room_name);
+                match Terminal::get_terminal(&room_name).await {
+                    Some(terminal) => {
+                        debug!("Found terminal {}, calling close()", room_name);
+                        if let Err(e) = terminal.close().await {
+                            error!("Failed to close terminal {}: {}", room_name, e);
+                        } else {
+                            info!("Closed terminal {} after room became empty", room_name);
+                        }
+                    }
+                    None => {
+                        debug!("Terminal {} not found in registry, may have already closed", room_name);
+                    }
+                }
+            } else {
+                debug!("Terminal {} room no longer empty, keeping alive", room_name);
+            }
+        });
+    } else {
+        debug!("Terminal {} room is not empty, no closure needed", room_name);
+    }
+}
+
+/// Close all terminals in the registry
+/// Called when the last socket disconnects to clean up orphaned terminal processes
+pub async fn close_all_terminals() {
+    let registry = TERMINAL_REGISTRY.read().await;
+    let terminals: Vec<_> = registry.values().cloned().collect();
+    let count = terminals.len();
+    drop(registry); // Release lock before closing
+
+    if count == 0 {
+        debug!("No terminals to close");
+        return;
+    }
+
+    info!("Closing {} terminal(s)", count);
+    for terminal in terminals {
+        if let Err(e) = terminal.close().await {
+            error!("Failed to close terminal {}: {}", terminal.name, e);
+        } else {
+            debug!("Closed terminal: {}", terminal.name);
+        }
+    }
+    info!("All terminals closed");
 }
 
 #[cfg(test)]

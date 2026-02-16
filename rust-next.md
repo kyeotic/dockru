@@ -108,30 +108,6 @@ This document catalogs features not yet implemented, known limitations, technica
 
 ## 3. Known Limitations
 
-### 3.1 Terminal Keep-Alive
-
-**Status:** Documented limitation  
-**Location:** [src/terminal.rs](src/terminal.rs#L401)
-
-**Issue:**
-- socketioxide 0.14 doesn't expose room member counting
-- Cannot detect when all clients leave terminal
-- Terminals stay alive until explicitly closed or process exits
-- 60-second keep-alive check runs but can't count clients
-
-**Workaround:**
-- Terminals close on process exit (normal behavior)
-- Explicit `leaveTerminal` or `close` still work
-- No resource leak, just terminals stay open longer than ideal
-
-**Resolution:**
-- Wait for socketioxide API enhancement
-- Or maintain own room membership tracking
-
-**Priority:** Medium - resource inefficiency, possible memory leaking
-
----
-
 ### 3.2 X-Forwarded-For IP Extraction
 
 **Status:** Not implemented  
@@ -152,27 +128,6 @@ This document catalogs features not yet implemented, known limitations, technica
 
 **Priority:** Medium - Affects rate limiting accuracy behind proxies
 
----
-
-### 3.3 Docker Container Detection
-
-**Status:** Not implemented  
-**Location:** [src/socket_handlers/settings.rs](src/socket_handlers/settings.rs#L166)
-
-**Issue:**
-- Reads `DOCKRU_IS_CONTAINER` env var but never set
-- Always reports `isContainer: false` in settings
-- Only affects UI display (icon/badge)
-
-**Workaround:**
-- User can manually set env var if needed
-- No functional impact
-
-**Resolution:**
-- Auto-detect container environment (check for `/.dockerenv`, cgroup, etc.)
-- Set `DOCKRU_IS_CONTAINER=1` in Dockerfile
-
-**Priority:** Low - Cosmetic issue only
 
 ---
 
@@ -292,28 +247,6 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 **Priority:** High - Current approach works but fragile
 
 ---
-
-### 4.3 Error Handling Consistency
-
-**Status:** ✅ Complete - Response handling unified
-**Location:** [src/utils/types.rs](src/utils/types.rs), [src/socket_handlers/helpers.rs](src/socket_handlers/helpers.rs)
-
-**Implementation:**
-- `BaseRes` struct provides standardized response format with type safety
-- All socket handlers now use `BaseRes` for responses instead of manual `json!()`
-- Helper functions (`ok_response`, `error_response`, `error_response_i18n`) return `BaseRes`
-- `CustomResponse<T>` generic type for responses with custom fields
-- Consistent structure: `ok`, `msg`, `msgi18n`, `data` fields
-- Compile-time validation of response structure
-
-**Benefits:**
-- Type safety: No more raw JSON values
-- Single source of truth for API response format
-- Easier refactoring and testing
-- Self-documenting code through type definitions
-- Reduced boilerplate from manual `json!()` creation
-
-**Note:** Error type unification (custom `AppError`) is still deferred - current `anyhow::Error` approach works well
 
 ---
 
@@ -506,7 +439,7 @@ fn validate_and_extract_ip(nonce: &str, signature: &str) -> Option<String> {
 8. X-Forwarded-For IP extraction (or use nonce system workaround)
 9. Two-factor authentication implementation
 10. ✅ Composerize feature
-11. Terminal keep-alive (room membership tracking)
+11. ✅ Terminal keep-alive (close all terminals when last socket disconnects)
 12. Integration and load testing
 13. Cross-platform testing
 14. Deployment documentation
@@ -570,5 +503,5 @@ When implementing items from this document:
 
 ---
 
-*Last updated: February 13, 2026*  
-*Based on: Phase 10 completion (all 10 migration phases complete)*
+*Last updated: February 15, 2026*
+*Based on: Phase 10 completion + terminal keep-alive implementation*

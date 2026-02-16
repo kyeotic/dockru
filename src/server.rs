@@ -239,8 +239,15 @@ impl DockruServer {
 
             // Setup disconnect handler - single handler for all cleanup
             let socket_id_for_disconnect = socket.id.to_string();
+            let ctx_for_disconnect = ctx.clone();
+            let socket_for_disconnect = socket.clone();
             socket.on_disconnect(move || {
                 let socket_id = socket_id_for_disconnect.clone();
+                let ctx = ctx_for_disconnect.clone();
+
+                // Capture rooms before socket disconnects
+                let rooms = socket_for_disconnect.rooms();
+
                 async move {
                     info!("Socket disconnected: {}", socket_id);
 
@@ -254,6 +261,20 @@ impl DockruServer {
                     // Clean up socket state
                     use crate::socket_handlers::remove_socket_state;
                     remove_socket_state(&socket_id);
+
+                    // Close terminals whose rooms became empty
+                    for room in rooms {
+                        let room_name = room.to_string();
+                        crate::terminal::schedule_terminal_closure_if_empty(ctx.io.clone(), room_name).await;
+                    }
+
+                    // Fallback: If last socket disconnected, close all terminals
+                    // Note: Check after a small delay to avoid race condition with socketioxide cleanup
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    if ctx.io.sockets().is_empty() {
+                        info!("Last socket disconnected, closing all terminals (fallback)");
+                        crate::terminal::close_all_terminals().await;
+                    }
                 }
             });
 
