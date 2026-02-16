@@ -66,7 +66,8 @@ prompt_with_default() {
         # Variable already set via environment
         echo -e "${GREEN}${prompt}:${NC} ${!var_name} (from environment)"
     else
-        read -p "$(echo -e ${GREEN}${prompt}${NC} [${default}]: )" input
+        # Read from /dev/tty to work when script is piped from curl
+        read -p "$(echo -e ${GREEN}${prompt}${NC} [${default}]: )" input < /dev/tty
         if [ -z "$input" ]; then
             eval "$var_name='$default'"
         else
