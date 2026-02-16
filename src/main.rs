@@ -5,7 +5,7 @@ mod broadcasts;
 mod check_version;
 mod config;
 mod db;
-mod docker_client;
+mod docker;
 mod rate_limiter;
 mod server;
 mod socket_auth;

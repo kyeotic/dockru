@@ -680,7 +680,7 @@ async fn handle_get_docker_network_list(
     check_login(socket)?;
 
     // Get networks via Docker API
-    let networks = crate::docker_client::list_networks(&ctx.docker).await?;
+    let networks = crate::docker::list_networks(&ctx.docker).await?;
 
     #[derive(Serialize)]
     struct DockerNetworkResponse {
