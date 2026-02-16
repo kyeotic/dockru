@@ -1,6 +1,6 @@
 services:
   dockru:
-    image: dockru:latest
+    image: ghcr.io/kyeotic/dockru:latest
     restart: unless-stopped
     ports:
       # Host Port : Container Port
@@ -14,6 +14,7 @@ services:
 
       # Stacks Directory
       # ⚠️ READ IT CAREFULLY. If you did it wrong, your data could end up writing into a WRONG PATH.
+      # ⚠️ YOU MUST
       # ⚠️ 1. FULL path only. No relative path (MUST)
       # ⚠️ 2. Left Stacks Path === Right Stacks Path (MUST)
       - /opt/stacks:/opt/stacks
