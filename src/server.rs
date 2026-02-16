@@ -110,6 +110,18 @@ impl DockruServer {
     fn build_router(&self, socket_layer: socketioxide::layer::SocketIoLayer) -> Router {
         let mut router = Router::new();
 
+        // Health check endpoint for Docker
+        router = router.route(
+            "/health",
+            get(|| async {
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .header(CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"status":"ok"}"#))
+                    .unwrap()
+            }),
+        );
+
         // Robots.txt route
         router = router.route(
             "/robots.txt",

@@ -9,9 +9,16 @@ tmp
 
 # Docker extra
 docker
-frontend
 .editorconfig
 .eslintrc.cjs
 .git
 .gitignore
 README.md
+
+# Exclude frontend build artifacts but keep source
+frontend/node_modules
+frontend/dist
+frontend-dist
+
+# Exclude Rust build artifacts
+target

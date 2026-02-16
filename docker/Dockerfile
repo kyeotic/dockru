@@ -1,42 +1,90 @@
 ############################################
-# Healthcheck Binary
+# Build Stage
 ############################################
-FROM louislam/dockru:build-healthcheck AS build_healthcheck
+FROM rust:bookworm AS builder
 
-############################################
-# Build
-############################################
-FROM louislam/dockru:base AS build
 WORKDIR /app
-COPY --chown=node:node  ./frontend/package.json ./frontend/package.json
-COPY --chown=node:node  ./frontend/package-lock.json ./frontend/package-lock.json
-RUN cd frontend && npm ci --omit=dev
+
+# Copy dependency files first for better caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy main to cache dependencies
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# Copy actual source code
+COPY . .
+
+# Build the real application
+RUN cargo build --release
 
 ############################################
-# ⭐ Main Image
+# Frontend Build Stage
 ############################################
-FROM louislam/dockru:base AS release
+FROM node:22-bookworm-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY frontend/package.json frontend/package-lock.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY frontend/ ./
+
+# Build frontend
+RUN npm run build
+
+############################################
+# Runtime Stage
+############################################
+FROM debian:bookworm-slim AS runtime
+
 WORKDIR /app
-COPY --chown=node:node --from=build_healthcheck /app/extra/healthcheck /app/extra/healthcheck
-COPY --from=build /app/frontend/node_modules /app/frontend/node_modules
-COPY --chown=node:node  . .
-RUN mkdir ./data
 
+# Install runtime dependencies
+RUN apt-get update && apt-get install --yes --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && echo \
+         "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+         "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+         tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get update \
+    && apt-get --yes --no-install-recommends install \
+         docker-ce-cli \
+         docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/*
 
-# It is just for safe, as by default, it is disabled in the latest Node.js now.
-# Read more:
-# - https://github.com/sagemathinc/cocalc/issues/6963
-# - https://github.com/microsoft/node-pty/issues/630#issuecomment-1987212447
+# Copy built binary from builder
+COPY --from=builder /app/target/release/dockru /app/dockru
+
+# Copy built frontend from frontend-builder (vite outputs to ../frontend-dist)
+COPY --from=frontend-builder /app/frontend-dist /app/frontend-dist
+
+# Create data directory
+RUN mkdir -p ./data
+
+# Disable io_uring for Node.js compatibility (if any Node.js components are used)
 ENV UV_USE_IO_URING=0
 
-VOLUME /app/data
+# Expose application port
 EXPOSE 5001
-HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD extra/healthcheck
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["tsx", "./backend/index.ts"]
 
-############################################
-# Mark as Nightly
-############################################
-FROM release AS nightly
-RUN npm run mark-as-nightly
+# Volume for persistent data
+VOLUME /app/data
+
+# Health check using the /health endpoint
+HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 \
+  CMD curl -f http://localhost:5001/health || exit 1
+
+# Run the application
+CMD ["/app/dockru"]

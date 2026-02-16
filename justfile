@@ -81,11 +81,11 @@ deploy registry="localhost:5000":
 
 # Run with docker-compose
 docker-up:
-    docker-compose -f compose.yaml up
+    docker-compose -f docker/compose.yaml up
 
 # Stop docker-compose services
 docker-down:
-    docker-compose -f compose.yaml down
+    docker-compose -f docker/compose.yaml down
 
 # Run the built binary directly
 run:
