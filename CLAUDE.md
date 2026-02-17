@@ -243,7 +243,7 @@ RUST_LOG=dockru::stack=debug,dockru::terminal=trace cargo run
 
 **Check database:**
 ```bash
-sqlite3 data/kuma.db "SELECT * FROM user;"
+sqlite3 data/dockru.db "SELECT * FROM user;"
 ```
 
 ## Additional Documentation
