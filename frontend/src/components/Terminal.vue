@@ -89,6 +89,8 @@ export default {
             this.mainTerminalConfig();
         } else if (this.mode === "interactive") {
             this.interactiveTerminalConfig();
+        } else if (this.mode === "containerLogs") {
+            // Display-only mode for logs, no key handler needed
         }
 
         //this.terminal.loadAddon(new WebLinksAddon());
@@ -139,6 +141,19 @@ export default {
                 this.stackName,
                 this.serviceName,
                 this.shell,
+                (res) => {
+                    if (!res.ok) {
+                        this.$root.toastRes(res);
+                    }
+                },
+            );
+        } else if (this.mode === "containerLogs") {
+            console.debug("Create Container logs terminal:", this.name);
+            this.$root.emitAgent(
+                this.endpoint,
+                "containerLogsTerminal",
+                this.stackName,
+                this.serviceName,
                 (res) => {
                     if (!res.ok) {
                         this.$root.toastRes(res);

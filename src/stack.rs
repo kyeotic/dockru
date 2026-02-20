@@ -9,7 +9,7 @@
 
 use crate::server::ServerContext;
 use crate::utils::constants::{
-    ACCEPTED_COMPOSE_FILE_NAMES, CREATED_FILE, CREATED_STACK, EXITED, RUNNING, UNKNOWN,
+    ACCEPTED_COMPOSE_FILE_NAMES, CREATED_FILE, UNKNOWN,
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -397,39 +397,6 @@ impl Stack {
         .await
     }
 
-    /// Update the status of this stack
-    pub async fn update_status(&mut self) -> Result<()> {
-        // Use bollard to check container status for this specific project
-        let containers = crate::docker::list_containers_by_project(&self.ctx.docker, &self.name)
-            .await
-            .unwrap_or_default(); // Treat errors as no containers
-
-        if containers.is_empty() {
-            self.status = UNKNOWN;
-        } else {
-            // Determine status from container states
-            let has_running = containers.iter().any(|c| {
-                c.state.as_ref().map(|s| s == "running").unwrap_or(false)
-            });
-            let has_exited = containers.iter().any(|c| {
-                c.state
-                    .as_ref()
-                    .map(|s| s.contains("exited"))
-                    .unwrap_or(false)
-            });
-
-            self.status = if has_running {
-                RUNNING
-            } else if has_exited {
-                EXITED
-            } else {
-                CREATED_STACK
-            };
-        }
-
-        Ok(())
-    }
-
     /// Get service status list for this stack
     pub async fn get_service_status_list(&self) -> Result<HashMap<String, ServiceStatus>> {
         let containers = crate::docker::list_containers_by_project(&self.ctx.docker, &self.name)
@@ -480,6 +447,24 @@ impl Stack {
             service_name,
             shell,
             index,
+            socket,
+        )
+        .await
+    }
+
+    /// Join a container's logs terminal (docker compose logs -f --tail 100 <service>)
+    pub async fn join_container_logs(
+        &self,
+        socket: SocketRef,
+        service_name: &str,
+    ) -> Result<()> {
+        crate::docker::join_container_logs_terminal(
+            self.ctx.io.clone(),
+            &self.name,
+            &self.path(),
+            &self.ctx.config.stacks_dir,
+            &self.endpoint,
+            service_name,
             socket,
         )
         .await

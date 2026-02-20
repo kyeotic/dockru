@@ -5,6 +5,7 @@ export default defineComponent({
         return {
             system: (window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light",
             userTheme: localStorage.theme,
+            composeLayout: localStorage.composeLayout || "classic",
             statusPageTheme: "light",
             forceStatusPageTheme: false,
             path: "",
@@ -31,6 +32,10 @@ export default defineComponent({
 
         userTheme(to, from) {
             localStorage.theme = to;
+        },
+
+        composeLayout(to, from) {
+            localStorage.composeLayout = to;
         },
 
         styleElapsedTime(to, from) {

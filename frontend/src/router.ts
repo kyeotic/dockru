@@ -7,6 +7,7 @@ import DashboardHome from "./pages/DashboardHome.vue";
 import Console from "./pages/Console.vue";
 import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
+import ContainerLogs from "./pages/ContainerLogs.vue";
 
 const Settings = () => import("./pages/Settings.vue");
 
@@ -36,6 +37,36 @@ const routes = [
                                 component: Compose,
                             },
                             {
+                                path: "/compose/:stackName/containers",
+                                component: Compose,
+                                meta: { tab: "containers" },
+                            },
+                            {
+                                path: "/compose/:stackName/compose",
+                                component: Compose,
+                                meta: { tab: "compose" },
+                            },
+                            {
+                                path: "/compose/:stackName/logs",
+                                component: Compose,
+                                meta: { tab: "logs" },
+                            },
+                            {
+                                path: "/compose/:stackName/:endpoint/containers",
+                                component: Compose,
+                                meta: { tab: "containers" },
+                            },
+                            {
+                                path: "/compose/:stackName/:endpoint/compose",
+                                component: Compose,
+                                meta: { tab: "compose" },
+                            },
+                            {
+                                path: "/compose/:stackName/:endpoint/logs",
+                                component: Compose,
+                                meta: { tab: "logs" },
+                            },
+                            {
                                 path: "/compose/:stackName/:endpoint",
                                 component: Compose,
                             },
@@ -52,6 +83,16 @@ const routes = [
                                 path: "/terminal/:stackName/:serviceName/:type/:endpoint",
                                 component: ContainerTerminal,
                                 name: "containerTerminalEndpoint",
+                            },
+                            {
+                                path: "/logs/:stackName/:serviceName",
+                                component: ContainerLogs,
+                                name: "containerLogs",
+                            },
+                            {
+                                path: "/logs/:stackName/:serviceName/:endpoint",
+                                component: ContainerLogs,
+                                name: "containerLogsEndpoint",
                             },
                         ]
                     },

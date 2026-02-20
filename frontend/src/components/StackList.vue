@@ -13,26 +13,23 @@
                     {{ $t("Select") }}
                 </button>
 
-                <div class="placeholder"></div>
-                <div class="search-wrapper">
-                    <a v-if="searchText == ''" class="search-icon">
+                <div class="search-wrapper input-group">
+                    <span v-if="searchText == ''" class="input-group-text search-icon">
                         <font-awesome-icon icon="search" />
-                    </a>
-                    <a
-                        v-if="searchText != ''"
-                        class="search-icon"
+                    </span>
+                    <span
+                        v-else
+                        class="input-group-text search-icon"
                         style="cursor: pointer"
                         @click="clearSearchText"
                     >
                         <font-awesome-icon icon="times" />
-                    </a>
-                    <form>
-                        <input
-                            v-model="searchText"
-                            class="form-control search-input"
-                            autocomplete="off"
-                        />
-                    </form>
+                    </span>
+                    <input
+                        v-model="searchText"
+                        class="form-control search-input"
+                        autocomplete="off"
+                    />
                 </div>
             </div>
 
@@ -469,10 +466,10 @@ export default {
 .search-wrapper {
     display: flex;
     align-items: center;
+    width: 100%;
 }
 
 .search-icon {
-    padding: 10px;
     color: #c0c0c0;
 
     // Clear filter button (X)
@@ -487,7 +484,7 @@ export default {
 }
 
 .search-input {
-    max-width: 15em;
+    width: 100%;
 }
 
 .stack-item {

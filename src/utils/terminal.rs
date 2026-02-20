@@ -37,6 +37,26 @@ pub fn get_container_terminal_name(endpoint: &str, container: &str) -> String {
     format!("container-{}-{}", endpoint, container)
 }
 
+/// Get the name for a container logs terminal
+///
+/// # Arguments
+/// * `endpoint` - The endpoint identifier
+/// * `stack_name` - The stack name
+/// * `container` - The container name
+///
+/// # Returns
+/// Terminal name in format "container-logs-{endpoint}-{stack_name}-{container}"
+pub fn get_container_logs_terminal_name(
+    endpoint: &str,
+    stack_name: &str,
+    container: &str,
+) -> String {
+    format!(
+        "container-logs-{}-{}-{}",
+        endpoint, stack_name, container
+    )
+}
+
 /// Get the name for a container exec terminal
 ///
 /// # Arguments
@@ -84,6 +104,18 @@ mod tests {
         assert_eq!(
             get_container_terminal_name("localhost", "my-container"),
             "container-localhost-my-container"
+        );
+    }
+
+    #[test]
+    fn test_get_container_logs_terminal_name() {
+        assert_eq!(
+            get_container_logs_terminal_name("localhost", "mystack", "my-container"),
+            "container-logs-localhost-mystack-my-container"
+        );
+        assert_eq!(
+            get_container_logs_terminal_name("remote", "stack1", "web"),
+            "container-logs-remote-stack1-web"
         );
     }
 

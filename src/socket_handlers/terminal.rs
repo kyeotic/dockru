@@ -27,6 +27,14 @@ struct InteractiveTerminalData {
 }
 
 #[derive(Debug, Deserialize)]
+struct ContainerLogsData {
+    #[serde(rename = "stackName")]
+    stack_name: String,
+    #[serde(rename = "serviceName")]
+    service_name: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct TerminalResizeData {
     #[serde(rename = "terminalName")]
     terminal_name: String,
@@ -98,6 +106,26 @@ pub fn setup_terminal_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
             tokio::spawn(async move {
                 match parse_interactive_terminal_args(&data) {
                     Ok(parsed) => match handle_interactive_terminal(&socket, &ctx, parsed).await {
+                        Ok(response) => {
+                            ack.send(&response).ok();
+                        }
+                        Err(e) => callback_error(Some(ack), e),
+                    },
+                    Err(e) => callback_error(Some(ack), e),
+                }
+            });
+        },
+    );
+
+    // containerLogsTerminal
+    let ctx_clone = ctx.clone();
+    socket.on(
+        "containerLogsTerminal",
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match parse_container_logs_args(&data) {
+                    Ok(parsed) => match handle_container_logs_terminal(&socket, &ctx, parsed).await {
                         Ok(response) => {
                             ack.send(&response).ok();
                         }
@@ -211,6 +239,28 @@ fn parse_interactive_terminal_args(data: &Value) -> Result<InteractiveTerminalDa
     })
 }
 
+/// Parse containerLogsTerminal positional args: [stackName, serviceName]
+fn parse_container_logs_args(data: &Value) -> Result<ContainerLogsData> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 2 {
+        return Err(anyhow!(
+            "containerLogsTerminal requires 2 arguments: stackName, serviceName"
+        ));
+    }
+    Ok(ContainerLogsData {
+        stack_name: args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("stackName must be a string"))?
+            .to_string(),
+        service_name: args[1]
+            .as_str()
+            .ok_or_else(|| anyhow!("serviceName must be a string"))?
+            .to_string(),
+    })
+}
+
 /// Parse terminalResize positional args: [terminalName, rows, cols]
 fn parse_terminal_resize_args(data: &Value) -> Result<TerminalResizeData> {
     let args = data
@@ -282,6 +332,18 @@ pub(crate) async fn dispatch_terminal_event(
         "interactiveTerminal" => {
             let data = parse_interactive_terminal_args(&json!(event_args))?;
             match handle_interactive_terminal(socket, ctx, data).await {
+                Ok(response) => {
+                    if let Some(ack) = ack.take() {
+                        ack.send(&response).ok();
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "containerLogsTerminal" => {
+            let data = parse_container_logs_args(&json!(event_args))?;
+            match handle_container_logs_terminal(socket, ctx, data).await {
                 Ok(response) => {
                     if let Some(ack) = ack.take() {
                         ack.send(&response).ok();
@@ -441,6 +503,28 @@ async fn handle_interactive_terminal(
     // Join container terminal (index 0 for first connection)
     stack
         .join_container_terminal(socket.clone(), &data.service_name, &shell, 0)
+        .await?;
+
+    Ok(BaseRes::ok().into())
+}
+
+async fn handle_container_logs_terminal(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    data: ContainerLogsData,
+) -> Result<serde_json::Value> {
+    check_login(socket)?;
+
+    debug!(
+        "Container logs terminal - Stack: {}, Service: {}",
+        data.stack_name, data.service_name
+    );
+
+    let endpoint = get_endpoint(socket);
+    let stack = Stack::get_stack(ctx.clone().into(), &data.stack_name, endpoint).await?;
+
+    stack
+        .join_container_logs(socket.clone(), &data.service_name)
         .await?;
 
     Ok(BaseRes::ok().into())

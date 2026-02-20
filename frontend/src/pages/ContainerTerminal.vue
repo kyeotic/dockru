@@ -2,7 +2,7 @@
     <transition name="slide-fade" appear>
         <div>
             <h1 class="mb-3">
-                {{ $t("terminal") }} - {{ serviceName }} ({{ stackName }})
+                <router-link :to="composeRoute">{{ stackName }}</router-link> - {{ serviceName }} ({{ $t("terminal") }})
             </h1>
 
             <div class="mb-3">
@@ -53,6 +53,12 @@ export default {
                 this.serviceName,
                 0,
             );
+        },
+        composeRoute() {
+            if (this.endpoint) {
+                return `/compose/${this.stackName}/${this.endpoint}`;
+            }
+            return `/compose/${this.stackName}`;
         },
         sh() {
             let endpoint = this.$route.params.endpoint;

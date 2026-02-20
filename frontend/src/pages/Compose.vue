@@ -141,7 +141,8 @@
                 ></Terminal>
             </transition>
 
-            <div v-if="stack.isManagedByDockru" class="row">
+            <!-- Classic Layout -->
+            <div v-if="stack.isManagedByDockru && isClassicLayout" class="row">
                 <div class="col-lg-6">
                     <!-- General -->
                     <div v-if="isAdd">
@@ -332,15 +333,211 @@
                             <NetworkInput />
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- <div class="shadow-box big-padding mb-3">
-                        <div class="mb-3">
-                            <label for="name" class="form-label"> Search Templates</label>
-                            <input id="name" v-model="name" type="text" class="form-control" placeholder="Search..." required>
+            <!-- Dockru Tabbed Layout -->
+            <div v-else-if="stack.isManagedByDockru && !isClassicLayout">
+                <!-- General (Add mode) -->
+                <div v-if="isAdd" class="mb-3">
+                    <h4 class="mb-3">{{ $t("general") }}</h4>
+                    <div class="shadow-box big-padding mb-3">
+                        <div>
+                            <label for="name-tabbed" class="form-label">{{
+                                $t("stackName")
+                            }}</label>
+                            <input
+                                id="name-tabbed"
+                                v-model="stack.name"
+                                type="text"
+                                class="form-control"
+                                required
+                                @blur="stackNameToLowercase"
+                            />
+                            <div class="form-text">
+                                {{ $t("Lowercase only") }}
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="endpoint-tabbed" class="form-label">{{
+                                $t("dockruAgent")
+                            }}</label>
+                            <select
+                                id="endpoint-tabbed"
+                                v-model="stack.endpoint"
+                                class="form-select"
+                            >
+                                <option
+                                    v-for="(
+                                        agent, endpoint
+                                    ) in $root.agentList"
+                                    :key="endpoint"
+                                    :value="endpoint"
+                                    :disabled="
+                                        $root.agentStatusList[endpoint] !=
+                                        'online'
+                                    "
+                                >
+                                    ({{ $root.agentStatusList[endpoint] }})
+                                    {{
+                                        endpoint
+                                            ? endpoint
+                                            : $t("currentEndpoint")
+                                    }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <ul class="nav nav-pills mb-3">
+                    <li class="nav-item">
+                        <a
+                            class="nav-link"
+                            :class="{ active: activeTab === 'containers' }"
+                            href="#"
+                            @click.prevent="switchTab('containers')"
+                        >
+                            {{ $tc("container", 2) }}
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a
+                            class="nav-link"
+                            :class="{ active: activeTab === 'compose' }"
+                            href="#"
+                            @click.prevent="switchTab('compose')"
+                        >
+                            {{ stack.composeFileName || 'compose.yaml' }}
+                        </a>
+                    </li>
+                    <li v-show="!isEditMode" class="nav-item">
+                        <a
+                            class="nav-link"
+                            :class="{ active: activeTab === 'logs' }"
+                            href="#"
+                            @click.prevent="switchTab('logs')"
+                        >
+                            {{ $t("terminal") }}
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- Containers Tab -->
+                <div v-show="activeTab === 'containers'">
+                    <div v-if="isEditMode" class="input-group mb-3">
+                        <input
+                            v-model="newContainerName"
+                            :placeholder="$t(`New Container Name...`)"
+                            class="form-control"
+                            @keyup.enter="addContainer"
+                        />
+                        <button class="btn btn-primary" @click="addContainer">
+                            {{ $t("addContainer") }}
+                        </button>
+                    </div>
+
+                    <div ref="containerListTabbed">
+                        <Container
+                            v-for="(service, name) in jsonConfig.services"
+                            :key="name"
+                            :name="name"
+                            :is-edit-mode="isEditMode"
+                            :first="
+                                name === Object.keys(jsonConfig.services)[0]
+                            "
+                            :status="serviceStatusList[name]?.state"
+                            :ports="serviceStatusList[name]?.ports"
+                        />
+                    </div>
+
+                    <div v-if="isEditMode">
+                        <h4 class="mb-3">{{ $t("extra") }}</h4>
+                        <div class="shadow-box big-padding mb-3">
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    {{ $tc("url", 2) }}
+                                </label>
+                                <ArrayInput
+                                    name="urls"
+                                    :display-name="$t('url')"
+                                    placeholder="https://"
+                                    object-type="x-dockru"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compose Tab -->
+                <div v-show="activeTab === 'compose'">
+                    <h4 class="mb-3">{{ stack.composeFileName }}</h4>
+
+                    <div
+                        class="shadow-box mb-3 editor-box"
+                        :class="{ 'edit-mode': isEditMode }"
+                    >
+                        <code-mirror
+                            v-model="stack.composeYAML"
+                            :extensions="extensions"
+                            minimal
+                            wrap="true"
+                            dark="true"
+                            tab="true"
+                            :disabled="!isEditMode"
+                            :hasFocus="editorFocus"
+                            @change="yamlCodeChange"
+                        />
+                    </div>
+                    <div v-if="isEditMode" class="mb-3">
+                        {{ yamlError }}
+                    </div>
+
+                    <div v-if="isEditMode">
+                        <h4 class="mb-3">.env</h4>
+                        <div
+                            class="shadow-box mb-3 editor-box"
+                            :class="{ 'edit-mode': isEditMode }"
+                        >
+                            <code-mirror
+                                v-model="stack.composeENV"
+                                :extensions="extensionsEnv"
+                                minimal
+                                wrap="true"
+                                dark="true"
+                                tab="true"
+                                :disabled="!isEditMode"
+                                :hasFocus="editorFocus"
+                                @change="yamlCodeChange"
+                            />
+                        </div>
+                    </div>
+
+                    <div v-if="isEditMode">
+                        <div v-if="false">
+                            <h4 class="mb-3">{{ $tc("volume", 2) }}</h4>
+                            <div class="shadow-box big-padding mb-3"></div>
                         </div>
 
-                        <prism-editor v-if="false" v-model="yamlConfig" class="yaml-editor" :highlight="highlighter" line-numbers @input="yamlCodeChange"></prism-editor>
-                    </div>-->
+                        <h4 class="mb-3">{{ $tc("network", 2) }}</h4>
+                        <div class="shadow-box big-padding mb-3">
+                            <NetworkInput />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Tab -->
+                <div v-show="activeTab === 'logs' && !isEditMode">
+                    <Terminal
+                        ref="combinedTerminal"
+                        class="mb-3 terminal dockru-terminal"
+                        :name="combinedTerminalName"
+                        :endpoint="endpoint"
+                        :rows="combinedTerminalRows"
+                        :cols="combinedTerminalCols"
+                        style="height: 450px"
+                    ></Terminal>
                 </div>
             </div>
 
@@ -408,6 +605,13 @@ export default {
         BModal,
     },
     beforeRouteUpdate(to, from, next) {
+        // Don't confirm exit for tab switches within the same stack
+        if (to.params.stackName === from.params.stackName &&
+            to.params.endpoint === from.params.endpoint) {
+            this.activeTab = to.meta?.tab || "containers";
+            next();
+            return;
+        }
         this.exitConfirm(next);
     },
     beforeRouteLeave(to, from, next) {
@@ -455,9 +659,23 @@ export default {
             showDeleteDialog: false,
             newContainerName: "",
             stopServiceStatusTimeout: false,
+            activeTab: "containers",
         };
     },
     computed: {
+        isClassicLayout() {
+            return this.$root.composeLayout !== "dockru";
+        },
+
+        tabUrl() {
+            return (tab) => {
+                const base = this.stack.endpoint
+                    ? `/compose/${this.stack.name}/${this.stack.endpoint}`
+                    : `/compose/${this.stack.name}`;
+                return `${base}/${tab}`;
+            };
+        },
+
         endpointDisplay() {
             return this.$root.endpointDisplayFunction(this.endpoint);
         },
@@ -538,11 +756,13 @@ export default {
         },
 
         url() {
-            if (this.stack.endpoint) {
-                return `/compose/${this.stack.name}/${this.stack.endpoint}`;
-            } else {
-                return `/compose/${this.stack.name}`;
+            const base = this.stack.endpoint
+                ? `/compose/${this.stack.name}/${this.stack.endpoint}`
+                : `/compose/${this.stack.name}`;
+            if (!this.isClassicLayout) {
+                return `${base}/containers`;
             }
+            return base;
         },
     },
     watch: {
@@ -588,6 +808,8 @@ export default {
         $route(to, from) {},
     },
     mounted() {
+        this.activeTab = this.$route.meta?.tab || "containers";
+
         if (this.isAdd) {
             this.processing = false;
             this.isEditMode = true;
@@ -627,6 +849,13 @@ export default {
     },
     unmounted() {},
     methods: {
+        switchTab(tab) {
+            this.activeTab = tab;
+            if (this.stack.name) {
+                history.replaceState(history.state, "", this.tabUrl(tab));
+            }
+        },
+
         startServiceStatusTimeout() {
             clearTimeout(serviceStatusTimeout);
             serviceStatusTimeout = setTimeout(async () => {
@@ -998,5 +1227,9 @@ export default {
 .agent-name {
     font-size: 13px;
     color: $dark-font-color3;
+}
+
+.dockru-terminal {
+    height: 450px;
 }
 </style>

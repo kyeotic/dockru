@@ -52,6 +52,7 @@ use crate::utils::constants::{
 };
 use crate::utils::terminal::{
     get_combined_terminal_name, get_compose_terminal_name, get_container_exec_terminal_name,
+    get_container_logs_terminal_name,
 };
 
 /// Extension trait for converting bollard errors to anyhow::Result
@@ -548,6 +549,42 @@ pub async fn join_exec_terminal(
         term.set_rows(TERMINAL_ROWS).await?;
         term
     };
+
+    terminal.join(socket).await?;
+    terminal
+        .start(
+            "docker".to_string(),
+            options,
+            stack_path.display().to_string(),
+        )
+        .await?;
+
+    Ok(())
+}
+
+/// Join or create a container logs terminal (docker compose logs -f --tail 100 <service>)
+pub async fn join_container_logs_terminal(
+    io: socketioxide::SocketIo,
+    stack_name: &str,
+    stack_path: &Path,
+    stacks_dir: &Path,
+    endpoint: &str,
+    service_name: &str,
+    socket: SocketRef,
+) -> Result<()> {
+    let terminal_name = get_container_logs_terminal_name(endpoint, stack_name, service_name);
+    let options = compose_options(stacks_dir, stack_name, "logs", &["-f", "--tail", "100", service_name]);
+
+    // Get or create terminal
+    let terminal = Terminal::get_or_create_terminal(
+        io,
+        terminal_name,
+        "docker".to_string(),
+        options.clone(),
+        stack_path.display().to_string(),
+    )
+    .await;
+    terminal.set_rows(TERMINAL_ROWS).await?;
 
     terminal.join(socket).await?;
     terminal

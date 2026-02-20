@@ -28,6 +28,14 @@
                 <div class="function">
                     <router-link
                         v-if="!isEditMode"
+                        class="btn btn-normal me-2"
+                        :to="logsRouteLink"
+                    >
+                        <font-awesome-icon icon="file-lines" />
+                        {{ $t("Logs") }}
+                    </router-link>
+                    <router-link
+                        v-if="!isEditMode"
                         class="btn btn-normal"
                         :to="terminalRouteLink"
                         disabled=""
@@ -239,6 +247,27 @@ export default defineComponent({
                 return "bg-danger";
             } else {
                 return "bg-secondary";
+            }
+        },
+
+        logsRouteLink() {
+            if (this.endpoint) {
+                return {
+                    name: "containerLogsEndpoint",
+                    params: {
+                        endpoint: this.endpoint,
+                        stackName: this.stackName,
+                        serviceName: this.name,
+                    },
+                };
+            } else {
+                return {
+                    name: "containerLogs",
+                    params: {
+                        stackName: this.stackName,
+                        serviceName: this.name,
+                    },
+                };
             }
         },
 

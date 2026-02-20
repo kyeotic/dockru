@@ -212,6 +212,21 @@ export function getContainerTerminalName(endpoint: string, container: string) {
     return "container-" + endpoint + "-" + container;
 }
 
+export function getContainerLogsTerminalName(
+    endpoint: string,
+    stackName: string,
+    container: string,
+) {
+    return (
+        "container-logs-" +
+        endpoint +
+        "-" +
+        stackName +
+        "-" +
+        container
+    );
+}
+
 export function getContainerExecTerminalName(
     endpoint: string,
     stackName: string,

@@ -63,6 +63,42 @@
                 </div>
             </div>
         </div>
+        <div class="my-4">
+            <label for="composeLayout" class="form-label">{{ $t("Compose Layout") }}</label>
+            <div>
+                <div
+                    class="btn-group"
+                    role="group"
+                    aria-label="Compose layout toggle"
+                >
+                    <input
+                        id="layoutClassic"
+                        v-model="$root.composeLayout"
+                        type="radio"
+                        class="btn-check"
+                        name="composeLayout"
+                        autocomplete="off"
+                        value="classic"
+                    />
+                    <label class="btn btn-outline-primary" for="layoutClassic">
+                        {{ $t("Classic") }}
+                    </label>
+
+                    <input
+                        id="layoutDockru"
+                        v-model="$root.composeLayout"
+                        type="radio"
+                        class="btn-check"
+                        name="composeLayout"
+                        autocomplete="off"
+                        value="dockru"
+                    />
+                    <label class="btn btn-outline-primary" for="layoutDockru">
+                        Dockru
+                    </label>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
