@@ -5,7 +5,7 @@ use crate::utils::types::{BaseRes, CustomResponse};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use socketioxide::extract::{AckSender, Data, SocketRef};
+use socketioxide::extract::{AckSender, Data, SocketRef, TryData};
 use std::sync::Arc;
 use tokio::fs;
 use tracing::debug;
@@ -39,26 +39,24 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     let ctx_clone = ctx.clone();
     socket.on(
         "setSettings",
-        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+        async move |socket: SocketRef,
+                    Data::<SetSettingsData>(settings_data),
+                    TryData::<String>(password_result),
+                    ack: AckSender| {
             let ctx = ctx_clone.clone();
             tokio::spawn(async move {
-                match parse_set_settings_args(&data) {
-                    Ok((settings_data, current_password)) => {
-                        if let Err(e) =
-                            handle_set_settings(&socket, &ctx, settings_data, current_password)
-                                .await
-                        {
-                            callback_error(Some(ack), e);
-                        } else {
-                            callback_ok(Some(ack), "Saved", false);
+                let current_password = password_result.ok().filter(|s| !s.is_empty());
+                if let Err(e) =
+                    handle_set_settings(&socket, &ctx, settings_data, current_password).await
+                {
+                    callback_error(Some(ack), e);
+                } else {
+                    callback_ok(Some(ack), "Saved", false);
 
-                            // Re-send info after settings change
-                            if let Err(e) = send_info_after_settings(&socket, &ctx).await {
-                                debug!("Failed to send info: {}", e);
-                            }
-                        }
+                    // Re-send info after settings change
+                    if let Err(e) = send_info_after_settings(&socket, &ctx).await {
+                        debug!("Failed to send info: {}", e);
                     }
-                    Err(e) => callback_error(Some(ack), e),
                 }
             });
         },
@@ -81,18 +79,6 @@ pub fn setup_settings_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
     );
 }
 
-/// Parse setSettings positional args: [settingsObj, currentPassword?]
-fn parse_set_settings_args(data: &serde_json::Value) -> Result<(SetSettingsData, Option<String>)> {
-    let args = data
-        .as_array()
-        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
-    if args.is_empty() {
-        return Err(anyhow!("setSettings requires at least a settings argument"));
-    }
-    let settings_data: SetSettingsData = serde_json::from_value(args[0].clone())?;
-    let current_password = args.get(1).and_then(|v| v.as_str()).map(|s| s.to_string());
-    Ok((settings_data, current_password))
-}
 
 async fn handle_get_settings(socket: &SocketRef, ctx: &ServerContext) -> Result<serde_json::Value> {
     check_login(socket)?;

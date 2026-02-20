@@ -118,6 +118,11 @@ optgroup {
     border-radius: 25px;
 }
 
+.bg-primary {
+    color: white;
+    background: $primary-gradient !important;
+}
+
 .btn-primary {
     color: white;
     background: $primary-gradient;
@@ -129,7 +134,7 @@ optgroup {
     }
 
     .dark & {
-        color: $dark-font-color2;
+        color: white; // was $dark-font-color2
     }
 }
 
@@ -147,10 +152,10 @@ optgroup {
 }
 
 .btn-warning {
-    color: white;
+    color: #212529; // was white; dark text for contrast on yellow
 
     &:hover, &:active, &:focus, &.active {
-        color: white;
+        color: #212529; // was white
     }
 }
 
@@ -314,7 +319,7 @@ optgroup {
     }
 
     .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-        color: $dark-font-color2;
+        color: white; // was $dark-font-color2
         background: $primary-gradient;
 
         &:hover {
@@ -323,7 +328,7 @@ optgroup {
     }
 
     .bg-primary {
-        color: $dark-font-color2;
+        color: white; // was $dark-font-color2
         background: $primary-gradient;
     }
 
@@ -687,7 +692,7 @@ code {
 	background-color: transparent !important;
 }
 .cm-selectionBackground {
-    background-color: #74c2ff3d !important;
+    background-color: #d263093d !important; /* was #74c2ff3d */
 }
 .cm-focused {
     outline: none !important;

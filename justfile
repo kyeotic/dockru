@@ -12,7 +12,7 @@ dev-all:
     echo "Starting development servers..."
     echo "Backend will run on http://localhost:5001"
     echo "Frontend dev server will run on http://localhost:5173"
-    cargo build && cd frontend && npm install && cd .. && npx concurrently -k -r "DOCKRU_STACKS_DIR=./stacks cargo watch -x run" "cd frontend && npm run dev"
+    cargo build && cd frontend && npm install && cd .. && npx concurrently -k "DOCKRU_STACKS_DIR=./stacks cargo watch -x run" "cd frontend && npm run watch"
 
 # Build the Rust backend
 build-backend:

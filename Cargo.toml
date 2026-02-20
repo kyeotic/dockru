@@ -3,6 +3,7 @@ name = "dockru"
 version = "1.5.0"
 edition = "2021"
 rust-version = "1.75"
+default-run = "dockru"
 
 [dependencies]
 # Async runtime

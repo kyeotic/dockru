@@ -8,6 +8,7 @@
         "lint": "eslint \"**/*.{ts,vue}\"",
         "check-ts": "tsc --noEmit",
         "dev": "vite --host",
+        "watch": "vite build --watch",
         "build": "vite build --emptyOutDir"
     },
     "dependencies": {

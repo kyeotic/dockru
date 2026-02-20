@@ -1,12 +1,12 @@
-$primary: #74c2ff;
+$primary: #da823a; // was #74c2ff
 $danger: #dc3545;
-$warning: #f8a306;
+$warning: #ffc107; // was #f8a306
 $maintenance: #1747f5;
 $link-color: #111;
 $border-radius: 50rem;
 
-$highlight: #9dd1ff;
-$highlight-white: #e7faec;
+$highlight: #e1853b; // was #9dd1ff
+$highlight-white: #fdf0e7; // was #e7faec
 
 $dark-font-color: #b1b8c0;
 $dark-font-color2: #020b05;
@@ -22,5 +22,5 @@ $easing-in-out: cubic-bezier(0.79, 0.14, 0.15, 0.86);
 
 $dropdown-border-radius: 0.5rem;
 
-$primary-gradient: linear-gradient(135deg, #74c2ff 0%, #74c2ff 75%, #86e6a9);
-$primary-gradient-active: linear-gradient(135deg, #74c2ff 0%, #74c2ff 50%, #86e6a9);
+$primary-gradient: linear-gradient(135deg, #d26309 0%, #d98c4e 75%, #e1853b); // was linear-gradient(135deg, #74c2ff 0%, #74c2ff 75%, #86e6a9)
+$primary-gradient-active: linear-gradient(135deg, #d26309 0%, #d26309 50%, #e1853b); // was linear-gradient(135deg, #74c2ff 0%, #74c2ff 50%, #86e6a9)
