@@ -19,6 +19,11 @@ services:
       # ⚠️ 1. FULL path only. No relative path (MUST)
       # ⚠️ 2. Left Stacks Path === Right Stacks Path (MUST)
       - /opt/stacks:/opt/stacks
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
     environment:
       # Tell Dockru where is your stacks directory
       - DOCKRU_STACKS_DIR=/opt/stacks
