@@ -299,7 +299,7 @@
                     </div>
 
                     <!-- ENV editor -->
-                    <div v-if="isEditMode">
+                    <div v-if="isEditMode || stack.composeENV">
                         <h4 class="mb-3">.env</h4>
                         <div
                             class="shadow-box mb-3 editor-box"
@@ -409,7 +409,7 @@
                             href="#"
                             @click.prevent="switchTab('compose')"
                         >
-                            {{ stack.composeFileName || 'compose.yaml' }}
+                            Config
                         </a>
                     </li>
                     <li v-show="!isEditMode" class="nav-item">
@@ -494,7 +494,7 @@
                         {{ yamlError }}
                     </div>
 
-                    <div v-if="isEditMode">
+                    <div v-if="isEditMode || stack.composeENV">
                         <h4 class="mb-3">.env</h4>
                         <div
                             class="shadow-box mb-3 editor-box"
@@ -664,7 +664,7 @@ export default {
     },
     computed: {
         isClassicLayout() {
-            return this.$root.composeLayout !== "dockru";
+            return this.$root.composeLayout !== "tabbed";
         },
 
         tabUrl() {
@@ -760,7 +760,7 @@ export default {
                 ? `/compose/${this.stack.name}/${this.stack.endpoint}`
                 : `/compose/${this.stack.name}`;
             if (!this.isClassicLayout) {
-                return `${base}/containers`;
+                return `${base}/${this.activeTab}`;
             }
             return base;
         },
@@ -985,7 +985,9 @@ export default {
 
                     if (res.ok) {
                         this.isEditMode = false;
-                        this.$router.push(this.url);
+                        if (this.isAdd) {
+                            this.$router.push(this.url);
+                        }
                     }
                 },
             );
@@ -1027,7 +1029,9 @@ export default {
 
                     if (res.ok) {
                         this.isEditMode = false;
-                        this.$router.push(this.url);
+                        if (this.isAdd) {
+                            this.$router.push(this.url);
+                        }
                     }
                 },
             );

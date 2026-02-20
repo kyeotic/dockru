@@ -78,10 +78,10 @@
                         class="btn-check"
                         name="composeLayout"
                         autocomplete="off"
-                        value="classic"
+                        value="column"
                     />
                     <label class="btn btn-outline-primary" for="layoutClassic">
-                        {{ $t("Classic") }}
+                        {{ $t("Column") }}
                     </label>
 
                     <input
@@ -91,10 +91,10 @@
                         class="btn-check"
                         name="composeLayout"
                         autocomplete="off"
-                        value="dockru"
+                        value="tabbed"
                     />
                     <label class="btn btn-outline-primary" for="layoutDockru">
-                        Dockru
+                        {{ $t("Tabbed") }}
                     </label>
                 </div>
             </div>

@@ -10,11 +10,20 @@ dev-all:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Starting development servers..."
-    echo "Backend will run on http://localhost:5001"
-    echo "Frontend watch rebuilds to frontend-dist/"
+    echo "Backend (internal) on http://localhost:5002"
+    echo "Frontend dev server (with HMR) on http://localhost:5001"
+    echo "Visit http://localhost:5001 in your browser"
     cd frontend && npm install && cd ..
-    trap 'kill 0' INT TERM EXIT
-    npx concurrently -k "DOCKRU_STACKS_DIR=./stacks cargo watch -x run" "cd frontend && npm run watch"
+    setsid npx concurrently -k \
+        "DOCKRU_STACKS_DIR=./stacks DOCKRU_PORT=5002 cargo watch -x run" \
+        "cd frontend && VITE_BACKEND_PORT=5002 npm run dev" &
+    CONC_PID=$!
+    cleanup() {
+        kill -- -$CONC_PID 2>/dev/null || true
+        wait $CONC_PID 2>/dev/null || true
+    }
+    trap cleanup INT TERM EXIT
+    wait $CONC_PID
 
 # Build the Rust backend
 build-backend:
