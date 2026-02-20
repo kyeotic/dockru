@@ -20,7 +20,7 @@
 
             <div class="my-3 update-link">
                 <a
-                    href="https://github.com/louislam/dockge/releases"
+                    href="https://github.com/kyeotic/dockru/releases"
                     target="_blank"
                     rel="noopener"
                     >{{ $t("Check Update On GitHub") }}</a

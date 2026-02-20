@@ -55,7 +55,7 @@ curl -sSL https://raw.githubusercontent.com/kyeotic/dockru/main/install | \
 ## How to Update
 
 ```bash
-cd /opt/dockge
+cd /opt/dockru
 docker compose pull && docker compose up -d
 ```
 

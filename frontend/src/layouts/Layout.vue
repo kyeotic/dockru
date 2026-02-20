@@ -38,7 +38,7 @@
             <a
                 v-if="hasNewVersion"
                 target="_blank"
-                href="https://github.com/louislam/dockge/releases"
+                href="https://github.com/kyeotic/dockru/releases"
                 class="btn btn-warning me-3"
             >
                 <font-awesome-icon icon="arrow-alt-circle-up" />
