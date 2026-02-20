@@ -14,8 +14,10 @@ RUN mkdir src && \
     cargo build --release && \
     rm -rf src
 
-# Copy actual source code
-COPY . .
+# Copy only Rust source (not frontend - built in separate stage)
+# This ensures frontend-only changes don't invalidate the Rust build cache
+COPY src ./src
+COPY migrations ./migrations
 
 # Build the real application
 RUN cargo build --release
