@@ -12,6 +12,7 @@
     "registry": "Rejestr",
     "compose": "Stwórz",
     "addFirstStackMsg": "Stwórz swój pierwszy stos!",
+    "noMatches": "Brak wyników",
     "stackName": "Nazwa stosu",
     "deployStack": "Wdroż",
     "deleteStack": "Usuń",

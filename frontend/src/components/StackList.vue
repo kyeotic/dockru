@@ -73,7 +73,8 @@
                 v-if="Object.keys(sortedStackList).length === 0"
                 class="text-center mt-3"
             >
-                <router-link to="/compose">{{
+                <span v-if="searchText">{{ $t("noMatches") }}</span>
+                <router-link v-else to="/compose">{{
                     $t("addFirstStackMsg")
                 }}</router-link>
             </div>

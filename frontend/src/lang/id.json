@@ -10,6 +10,7 @@
     "registry": "Registri",
     "compose": "Menyusun",
     "addFirstStackMsg": "Buat tumpukan pertama Anda!",
+    "noMatches": "Tidak ada yang cocok",
     "stackName": "Nama Tumpukan",
     "deployStack": "Terapkan",
     "stopStack": "Hentikan",

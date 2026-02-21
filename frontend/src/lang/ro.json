@@ -10,6 +10,7 @@
     "registry": "Registru",
     "compose": "Compune",
     "addFirstStackMsg": "Compune prima ta stivă!",
+    "noMatches": "Nicio potrivire",
     "stackName": "Nume stivă",
     "deployStack": "Lansează",
     "deleteStack": "Șterge",

@@ -12,6 +12,7 @@
     "registry": "레지스트리",
     "compose": "생성",
     "addFirstStackMsg": "첫 번째 스택을 만들어 보세요!",
+    "noMatches": "일치하는 항목 없음",
     "stackName": "스택 이름",
     "deployStack": "배포",
     "deleteStack": "삭제",

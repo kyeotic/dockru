@@ -89,6 +89,7 @@
     "extra": "Extra",
     "Create your admin account": "Creëer je beheerders-account",
     "addFirstStackMsg": "Maak je eerste stack!",
+    "noMatches": "Geen overeenkomsten",
     "deleteStackMsg": "Zeker dat je deze stack wilt verwijderen?",
     "dependsOn": "Container afhankelijkheid | afhankelijkheden",
     "disableauth.message1": "Zeker dat u <strong>aanmelden</strong> wilt uitschakelen?",

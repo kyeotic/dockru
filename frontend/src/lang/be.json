@@ -15,6 +15,7 @@
     "registry": "Рэестр (Registry)",
     "compose": "Compose",
     "addFirstStackMsg": "Стварыце свой першы стэк!",
+    "noMatches": "Няма супадзенняў",
     "stackName": "Назва стэка",
     "deployStack": "Разгарнуць",
     "deleteStack": "Выдаліць",

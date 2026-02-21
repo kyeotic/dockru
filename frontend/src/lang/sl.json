@@ -12,6 +12,7 @@
     "registry": "Register",
     "compose": "Compose",
     "addFirstStackMsg": "Ustvarite svoj prvi Stack!",
+    "noMatches": "Ni ujemanj",
     "stackName": "Ime Stack-a",
     "deployStack": "Razporedi",
     "deleteStack": "Izbriši",

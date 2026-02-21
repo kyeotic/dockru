@@ -11,6 +11,7 @@
     "registry": "Register",
     "compose": "Skriv",
     "addFirstStackMsg": "Lag din første stack!",
+    "noMatches": "Ingen treff",
     "stackName": "Navn på stack",
     "deployStack": "Utplassere",
     "deleteStack": "Slett",

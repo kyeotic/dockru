@@ -12,6 +12,7 @@
     "registry": "Register",
     "compose": "Komponera",
     "addFirstStackMsg": "Komponera din första stack!",
+    "noMatches": "Inga träffar",
     "stackName": "Stacknamn",
     "deployStack": "Distribuera",
     "deleteStack": "Radera",

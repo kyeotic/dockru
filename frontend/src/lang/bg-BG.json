@@ -12,6 +12,7 @@
     "registry": "Регистър",
     "compose": "Compose",
     "addFirstStackMsg": "Създайте вашия първи стак!",
+    "noMatches": "Няма съвпадения",
     "stackName": "Име на стак",
     "deployStack": "Разположи",
     "deleteStack": "Изтрий",

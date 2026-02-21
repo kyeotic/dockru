@@ -12,6 +12,7 @@
     "registry": "Registry",
     "compose": "Compose",
     "addFirstStackMsg": "Додайте свій перший стек!",
+    "noMatches": "Немає збігів",
     "stackName": "Назва стеку",
     "deployStack": "Розгорнути",
     "deleteStack": "Видалити",

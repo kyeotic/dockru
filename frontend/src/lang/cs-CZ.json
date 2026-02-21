@@ -12,6 +12,7 @@
     "registry": "Registry",
     "compose": "Komponovat",
     "addFirstStackMsg": "Vytvořte svůj první zásobník!",
+    "noMatches": "Žádné výsledky",
     "stackName": "Název Zásobníku",
     "deployStack": "Nainstalovat",
     "deleteStack": "Smazat",

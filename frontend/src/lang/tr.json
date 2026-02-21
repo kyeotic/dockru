@@ -12,6 +12,7 @@
     "registry": "Kayıt Defteri",
     "compose": "Oluştur",
     "addFirstStackMsg": "İlk yığınınızı oluşturun!",
+    "noMatches": "Eşleşme yok",
     "stackName": "Yığın Adı",
     "deployStack": "Dağıt",
     "deleteStack": "Sil",

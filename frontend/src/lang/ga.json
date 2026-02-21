@@ -107,6 +107,7 @@
     "signedInDispDisabled": "Auth Díchumasaithe.",
     "home": "Abhaile",
     "addFirstStackMsg": "Scríobh do chéad stac!",
+    "noMatches": "Gan torthaí",
     "notAvailableShort": "Níl ar Fáil",
     "stackNotManagedByDockruMsg": "Ní bhainistítear an staca seo ag Dockru.",
     "containerName": "Ainm na gCoimeádán",

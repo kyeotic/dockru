@@ -12,6 +12,7 @@
     "registry": "رجسٹری",
     "compose": "تحریر",
     "addFirstStackMsg": "اپنا پہلا اسٹیک کمپوز کریں!",
+    "noMatches": "کوئی میل نہیں",
     "stackName": "اسٹیک کا نام",
     "deployStack": "تعینات",
     "deleteStack": "حذف کریں",

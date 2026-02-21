@@ -12,6 +12,7 @@
     "registry": "镜像仓库",
     "compose": "Compose",
     "addFirstStackMsg": "组合你的第一个堆栈！",
+    "noMatches": "无匹配项",
     "stackName": "堆栈名称",
     "deployStack": "部署",
     "deleteStack": "删除",

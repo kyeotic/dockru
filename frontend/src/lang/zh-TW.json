@@ -12,6 +12,7 @@
     "registry": "映像倉庫",
     "compose": "撰寫",
     "addFirstStackMsg": "組合您的第一個堆疊！",
+    "noMatches": "無匹配項",
     "stackName": "堆疊名稱",
     "deployStack": "部署",
     "deleteStack": "刪除",

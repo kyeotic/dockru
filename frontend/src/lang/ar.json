@@ -12,6 +12,7 @@
     "registry": "السجل",
     "compose": "أنشاء كمبوز",
     "addFirstStackMsg": "أنشيء أول كمبوز!",
+    "noMatches": "لا توجد تطابقات",
     "stackName": "اسم المكدسة",
     "deployStack": "نشر",
     "deleteStack": "حذف",

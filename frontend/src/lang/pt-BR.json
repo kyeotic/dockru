@@ -12,6 +12,7 @@
     "registry": "Registro",
     "compose": "Compose",
     "addFirstStackMsg": "Crie sua primeira stack!",
+    "noMatches": "Sem correspondências",
     "stackName": "Nome da stack",
     "deployStack": "Deploy",
     "deleteStack": "Excluir",

@@ -12,6 +12,7 @@
     "registry": "Registro",
     "compose": "Compor",
     "addFirstStackMsg": "Componha sua primeira pilha!",
+    "noMatches": "Sem resultados",
     "stackName": "Nome da Pilha",
     "deployStack": "Implantar",
     "deleteStack": "Excluir",

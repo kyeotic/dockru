@@ -92,6 +92,7 @@
     "extra": "Ekstra",
     "Create your admin account": "Opret din administratorkonto",
     "addFirstStackMsg": "Komponer din første stak!",
+    "noMatches": "Ingen resultater",
     "deleteStackMsg": "Er du sikker på, at du vil slette denne stak?",
     "environmentVariable": "Miljøvariabel | miljøvariabler",
     "addContainer": "Tilføj Container",

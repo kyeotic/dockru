@@ -12,6 +12,7 @@
     "registry": "Container Registry",
     "compose": "Compose",
     "addFirstStackMsg": "Stelle deinen ersten Stack zusammen!",
+    "noMatches": "Keine Treffer",
     "stackName": "Stack-Name",
     "deployStack": "Deployen",
     "deleteStack": "Löschen",

@@ -12,6 +12,7 @@
     "registry": "Registry",
     "compose": "Compose",
     "addFirstStackMsg": "Compose stack แรกของคุณ!",
+    "noMatches": "ไม่พบผลลัพธ์",
     "stackName": "ชื่อ Stack",
     "deployStack": "ปรับใช้",
     "deleteStack": "ลบ",
