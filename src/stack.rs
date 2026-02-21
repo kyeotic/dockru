@@ -78,6 +78,7 @@ pub struct StackJson {
 pub struct ServiceStatus {
     pub state: String,
     pub ports: Vec<String>,
+    pub health: Option<String>,
 }
 
 impl Stack {

@@ -11,6 +11,9 @@
                     <span class="badge me-1" :class="bgStyle">{{
                         status
                     }}</span>
+                    <span v-if="health" class="badge me-1" :class="healthStyle">{{
+                        health
+                    }}</span>
 
                     <a
                         v-for="port in ports ?? envsubstService.ports"
@@ -224,6 +227,10 @@ export default defineComponent({
             type: Array,
             default: null,
         },
+        health: {
+            type: String,
+            default: null,
+        },
     },
     emits: [],
     data() {
@@ -241,9 +248,19 @@ export default defineComponent({
         },
 
         bgStyle() {
-            if (this.status === "running" || this.status === "healthy") {
+            if (this.status === "running") {
                 return "bg-primary";
-            } else if (this.status === "unhealthy") {
+            } else if (this.status === "exited" || this.status === "dead") {
+                return "bg-danger";
+            } else {
+                return "bg-secondary";
+            }
+        },
+
+        healthStyle() {
+            if (this.health === "healthy") {
+                return "bg-success";
+            } else if (this.health === "unhealthy") {
                 return "bg-danger";
             } else {
                 return "bg-secondary";

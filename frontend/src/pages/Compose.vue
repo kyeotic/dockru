@@ -223,6 +223,7 @@
                                 name === Object.keys(jsonConfig.services)[0]
                             "
                             :status="serviceStatusList[name]?.state"
+                            :health="serviceStatusList[name]?.health"
                             :ports="serviceStatusList[name]?.ports"
                         />
                     </div>
@@ -448,6 +449,7 @@
                                 name === Object.keys(jsonConfig.services)[0]
                             "
                             :status="serviceStatusList[name]?.state"
+                            :health="serviceStatusList[name]?.health"
                             :ports="serviceStatusList[name]?.ports"
                         />
                     </div>

@@ -133,19 +133,21 @@ pub fn map_to_service_status(
             .map(|s| s.to_string());
 
         if let Some(service) = service_name {
-            // Determine state (prefer Status over State for health info)
-            let state = if let Some(status) = container.status.as_ref() {
-                status.clone()
-            } else if let Some(state) = container.state.as_ref() {
-                state.clone()
-            } else {
-                "unknown".to_string()
-            };
+            // Use clean state ("running", "exited", etc.)
+            let state = container.state.clone().unwrap_or_else(|| "unknown".to_string());
 
-            // Extract port mappings, deduplicating across IPv4/IPv6 bindings
+            // Extract health from the verbose status string, e.g. "Up 2 hours (healthy)"
+            let health = container.status.as_deref().and_then(|s| {
+                let start = s.find('(')?;
+                let end = s.find(')')?;
+                let inner = &s[start + 1..end];
+                matches!(inner, "healthy" | "unhealthy" | "starting").then(|| inner.to_string())
+            });
+
+            // Extract port mappings, deduplicating across IPv4/IPv6 bindings, sorted by public port
             let ports: Vec<String> = {
                 let mut seen = std::collections::HashSet::new();
-                container
+                let mut ports: Vec<String> = container
                     .ports
                     .unwrap_or_default()
                     .iter()
@@ -153,12 +155,14 @@ pub fn map_to_service_status(
                         p.public_port.map(|public| format!("{}:{}", public, p.private_port))
                     })
                     .filter(|p| seen.insert(p.clone()))
-                    .collect()
+                    .collect();
+                ports.sort_by_key(|p| p.split(':').next().and_then(|s| s.parse::<u16>().ok()).unwrap_or(0));
+                ports
             };
 
             status_map.insert(
                 service,
-                crate::stack::ServiceStatus { state, ports },
+                crate::stack::ServiceStatus { state, ports, health },
             );
         }
     }
