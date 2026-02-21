@@ -5,6 +5,10 @@ edition = "2021"
 rust-version = "1.75"
 default-run = "dockru"
 
+[[bin]]
+name = "dockru"
+path = "src/main.rs"
+
 [dependencies]
 # Async runtime
 tokio = { version = "1", features = ["full"] }

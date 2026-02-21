@@ -71,7 +71,7 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
 COPY --from=builder /app/target/release/dockru /app/dockru
 
 # Copy built frontend
-COPY --from=frontend-builder /app/frontend/dist /app/frontend-dist
+COPY --from=frontend-builder /app/frontend-dist /app/frontend-dist
 
 # Create data directory
 RUN mkdir -p /app/data
