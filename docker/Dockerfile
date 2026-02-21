@@ -3,6 +3,9 @@
 ############################################
 FROM rust:bookworm AS builder
 
+ARG GIT_SHA=unknown
+ENV GIT_COMMIT_SHA=$GIT_SHA
+
 WORKDIR /app
 
 # Copy dependency files first for better caching
@@ -87,6 +90,9 @@ VOLUME /app/data
 # Health check using the /health endpoint
 HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 \
   CMD curl -f http://localhost:5001/health || exit 1
+
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.revision=$GIT_SHA
 
 # Run the application
 CMD ["/app/dockru"]

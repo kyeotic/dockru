@@ -36,7 +36,7 @@
             </router-link>
 
             <a
-                v-if="hasNewVersion"
+                v-if="hasNewVersion || hasImageUpdate"
                 target="_blank"
                 href="https://github.com/kyeotic/dockru/releases"
                 class="btn btn-warning me-3"
@@ -182,6 +182,11 @@ export default {
             } else {
                 return false;
             }
+        },
+
+        hasImageUpdate() {
+            const { latestImageSha, currentSha } = this.$root.info;
+            return latestImageSha && currentSha && latestImageSha !== currentSha;
         },
     },
 

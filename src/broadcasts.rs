@@ -22,6 +22,18 @@ pub async fn send_info(socket: &SocketRef, ctx: &ServerContext, hide_version: bo
         ctx.version_checker.latest_version().await
     };
 
+    let current_sha = if hide_version {
+        None
+    } else {
+        Some(ctx.version_checker.current_sha().to_string())
+    };
+
+    let latest_image_sha = if hide_version {
+        None
+    } else {
+        ctx.version_checker.latest_image_sha().await
+    };
+
     let primary_hostname = Setting::get(&ctx.db, &ctx.cache, "primaryHostname")
         .await?
         .and_then(|v| v.as_str().map(|s| s.to_string()));
@@ -29,6 +41,8 @@ pub async fn send_info(socket: &SocketRef, ctx: &ServerContext, hide_version: bo
     let info = serde_json::json!({
         "version": version,
         "latestVersion": latest_version,
+        "currentSha": current_sha,
+        "latestImageSha": latest_image_sha,
         "primaryHostname": primary_hostname,
     });
 
