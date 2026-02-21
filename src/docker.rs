@@ -142,15 +142,19 @@ pub fn map_to_service_status(
                 "unknown".to_string()
             };
 
-            // Extract port mappings
-            let ports: Vec<String> = container
-                .ports
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|p| {
-                    p.public_port.map(|public| format!("{}:{}", public, p.private_port))
-                })
-                .collect();
+            // Extract port mappings, deduplicating across IPv4/IPv6 bindings
+            let ports: Vec<String> = {
+                let mut seen = std::collections::HashSet::new();
+                container
+                    .ports
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|p| {
+                        p.public_port.map(|public| format!("{}:{}", public, p.private_port))
+                    })
+                    .filter(|p| seen.insert(p.clone()))
+                    .collect()
+            };
 
             status_map.insert(
                 service,
