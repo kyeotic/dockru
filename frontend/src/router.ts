@@ -8,6 +8,7 @@ import Console from "./pages/Console.vue";
 import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
 import ContainerLogs from "./pages/ContainerLogs.vue";
+import ContainerPage from "./pages/ContainerPage.vue";
 
 const Settings = () => import("./pages/Settings.vue");
 
@@ -93,6 +94,16 @@ const routes = [
                                 path: "/logs/:stackName/:serviceName/:endpoint",
                                 component: ContainerLogs,
                                 name: "containerLogsEndpoint",
+                            },
+                            {
+                                path: "/container/:stackName/:serviceName",
+                                component: ContainerPage,
+                                name: "containerPage",
+                            },
+                            {
+                                path: "/container/:stackName/:serviceName/:endpoint",
+                                component: ContainerPage,
+                                name: "containerPageEndpoint",
                             },
                         ]
                     },

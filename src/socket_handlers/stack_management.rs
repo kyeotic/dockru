@@ -218,6 +218,86 @@ pub fn setup_stack_handlers(socket: SocketRef, ctx: Arc<ServerContext>) {
         },
     );
 
+    // restartService
+    let ctx_clone = ctx.clone();
+    socket.on(
+        "restartService",
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match parse_service_args(&data) {
+                    Ok((stack_name, service_name)) => {
+                        match handle_restart_service(&socket, &ctx, &stack_name, &service_name).await {
+                            Ok(_) => callback_ok(Some(ack), "Restarted", true),
+                            Err(e) => callback_error(Some(ack), e),
+                        }
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                }
+            });
+        },
+    );
+
+    // startService
+    let ctx_clone = ctx.clone();
+    socket.on(
+        "startService",
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match parse_service_args(&data) {
+                    Ok((stack_name, service_name)) => {
+                        match handle_start_service(&socket, &ctx, &stack_name, &service_name).await {
+                            Ok(_) => callback_ok(Some(ack), "Started", true),
+                            Err(e) => callback_error(Some(ack), e),
+                        }
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                }
+            });
+        },
+    );
+
+    // stopService
+    let ctx_clone = ctx.clone();
+    socket.on(
+        "stopService",
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match parse_service_args(&data) {
+                    Ok((stack_name, service_name)) => {
+                        match handle_stop_service(&socket, &ctx, &stack_name, &service_name).await {
+                            Ok(_) => callback_ok(Some(ack), "Stopped", true),
+                            Err(e) => callback_error(Some(ack), e),
+                        }
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                }
+            });
+        },
+    );
+
+    // pullService
+    let ctx_clone = ctx.clone();
+    socket.on(
+        "pullService",
+        async move |socket: SocketRef, Data::<serde_json::Value>(data), ack: AckSender| {
+            let ctx = ctx_clone.clone();
+            tokio::spawn(async move {
+                match parse_service_args(&data) {
+                    Ok((stack_name, service_name)) => {
+                        match handle_pull_service(&socket, &ctx, &stack_name, &service_name).await {
+                            Ok(_) => callback_ok(Some(ack), "Pulled", true),
+                            Err(e) => callback_error(Some(ack), e),
+                        }
+                    }
+                    Err(e) => callback_error(Some(ack), e),
+                }
+            });
+        },
+    );
+
     // serviceStatusList
     let ctx_clone = ctx.clone();
     socket.on(
@@ -483,6 +563,58 @@ pub(crate) async fn dispatch_stack_event(
             }
             Ok(true)
         }
+        "restartService" => {
+            let args = json!(event_args);
+            match parse_service_args(&args) {
+                Ok((stack_name, service_name)) => {
+                    match handle_restart_service(socket, ctx, &stack_name, &service_name).await {
+                        Ok(_) => callback_ok(ack.take(), "Restarted", true),
+                        Err(e) => callback_error(ack.take(), e),
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "startService" => {
+            let args = json!(event_args);
+            match parse_service_args(&args) {
+                Ok((stack_name, service_name)) => {
+                    match handle_start_service(socket, ctx, &stack_name, &service_name).await {
+                        Ok(_) => callback_ok(ack.take(), "Started", true),
+                        Err(e) => callback_error(ack.take(), e),
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "stopService" => {
+            let args = json!(event_args);
+            match parse_service_args(&args) {
+                Ok((stack_name, service_name)) => {
+                    match handle_stop_service(socket, ctx, &stack_name, &service_name).await {
+                        Ok(_) => callback_ok(ack.take(), "Stopped", true),
+                        Err(e) => callback_error(ack.take(), e),
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
+        "pullService" => {
+            let args = json!(event_args);
+            match parse_service_args(&args) {
+                Ok((stack_name, service_name)) => {
+                    match handle_pull_service(socket, ctx, &stack_name, &service_name).await {
+                        Ok(_) => callback_ok(ack.take(), "Pulled", true),
+                        Err(e) => callback_error(ack.take(), e),
+                    }
+                }
+                Err(e) => callback_error(ack.take(), e),
+            }
+            Ok(true)
+        }
         _ => Ok(false),
     }
 }
@@ -692,6 +824,77 @@ async fn handle_get_docker_network_list(
         docker_network_list: networks,
     })
     .into())
+}
+
+fn parse_service_args(data: &Value) -> Result<(String, String)> {
+    let args = data
+        .as_array()
+        .ok_or_else(|| anyhow!("Expected array of arguments"))?;
+    if args.len() < 2 {
+        return Err(anyhow!("Expected [stackName, serviceName]"));
+    }
+    Ok((
+        args[0]
+            .as_str()
+            .ok_or_else(|| anyhow!("stackName must be a string"))?
+            .to_string(),
+        args[1]
+            .as_str()
+            .ok_or_else(|| anyhow!("serviceName must be a string"))?
+            .to_string(),
+    ))
+}
+
+async fn handle_restart_service(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    stack_name: &str,
+    service_name: &str,
+) -> Result<()> {
+    check_login(socket)?;
+    let endpoint = get_endpoint(socket);
+    let stack = Stack::get_stack(ctx.clone().into(), stack_name, endpoint).await?;
+    stack.restart_service(service_name, Some(socket.clone())).await?;
+    Ok(())
+}
+
+async fn handle_start_service(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    stack_name: &str,
+    service_name: &str,
+) -> Result<()> {
+    check_login(socket)?;
+    let endpoint = get_endpoint(socket);
+    let stack = Stack::get_stack(ctx.clone().into(), stack_name, endpoint).await?;
+    stack.start_service(service_name, Some(socket.clone())).await?;
+    Ok(())
+}
+
+async fn handle_stop_service(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    stack_name: &str,
+    service_name: &str,
+) -> Result<()> {
+    check_login(socket)?;
+    let endpoint = get_endpoint(socket);
+    let stack = Stack::get_stack(ctx.clone().into(), stack_name, endpoint).await?;
+    stack.stop_service(service_name, Some(socket.clone())).await?;
+    Ok(())
+}
+
+async fn handle_pull_service(
+    socket: &SocketRef,
+    ctx: &ServerContext,
+    stack_name: &str,
+    service_name: &str,
+) -> Result<()> {
+    check_login(socket)?;
+    let endpoint = get_endpoint(socket);
+    let stack = Stack::get_stack(ctx.clone().into(), stack_name, endpoint).await?;
+    stack.pull_service(service_name, Some(socket.clone())).await?;
+    Ok(())
 }
 
 /// Broadcast stack list to all authenticated sockets

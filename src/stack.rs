@@ -79,6 +79,7 @@ pub struct ServiceStatus {
     pub state: String,
     pub ports: Vec<String>,
     pub health: Option<String>,
+    pub image: Option<String>,
 }
 
 impl Stack {
@@ -393,6 +394,62 @@ impl Stack {
             &self.path(),
             &self.ctx.config.stacks_dir,
             &self.endpoint,
+            socket,
+        )
+        .await
+    }
+
+    /// Restart a single service in the stack (docker compose restart <service>)
+    pub async fn restart_service(&self, service_name: &str, socket: Option<SocketRef>) -> Result<i32> {
+        crate::docker::restart_service(
+            self.ctx.io.clone(),
+            &self.name,
+            &self.path(),
+            &self.ctx.config.stacks_dir,
+            &self.endpoint,
+            service_name,
+            socket,
+        )
+        .await
+    }
+
+    /// Start a single service in the stack (docker compose start <service>)
+    pub async fn start_service(&self, service_name: &str, socket: Option<SocketRef>) -> Result<i32> {
+        crate::docker::start_service(
+            self.ctx.io.clone(),
+            &self.name,
+            &self.path(),
+            &self.ctx.config.stacks_dir,
+            &self.endpoint,
+            service_name,
+            socket,
+        )
+        .await
+    }
+
+    /// Stop a single service in the stack (docker compose stop <service>)
+    pub async fn stop_service(&self, service_name: &str, socket: Option<SocketRef>) -> Result<i32> {
+        crate::docker::stop_service(
+            self.ctx.io.clone(),
+            &self.name,
+            &self.path(),
+            &self.ctx.config.stacks_dir,
+            &self.endpoint,
+            service_name,
+            socket,
+        )
+        .await
+    }
+
+    /// Pull a new image for a single service (docker compose pull <service>)
+    pub async fn pull_service(&self, service_name: &str, socket: Option<SocketRef>) -> Result<i32> {
+        crate::docker::pull_service(
+            self.ctx.io.clone(),
+            &self.name,
+            &self.path(),
+            &self.ctx.config.stacks_dir,
+            &self.endpoint,
+            service_name,
             socket,
         )
         .await

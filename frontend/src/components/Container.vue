@@ -2,7 +2,10 @@
     <div class="shadow-box big-padding mb-3 container">
         <div class="row">
             <div class="col-7">
-                <h4>{{ name }}</h4>
+                <h4>
+                    <router-link v-if="!isEditMode" :to="containerPageRoute">{{ name }}</router-link>
+                    <span v-else>{{ name }}</span>
+                </h4>
                 <div class="image mb-2">
                     <span class="me-1">{{ imageName }}:</span
                     ><span class="tag">{{ imageTag }}</span>
@@ -264,6 +267,27 @@ export default defineComponent({
                 return "bg-danger";
             } else {
                 return "bg-secondary";
+            }
+        },
+
+        containerPageRoute() {
+            if (this.endpoint) {
+                return {
+                    name: "containerPageEndpoint",
+                    params: {
+                        endpoint: this.endpoint,
+                        stackName: this.stackName,
+                        serviceName: this.name,
+                    },
+                };
+            } else {
+                return {
+                    name: "containerPage",
+                    params: {
+                        stackName: this.stackName,
+                        serviceName: this.name,
+                    },
+                };
             }
         },
 

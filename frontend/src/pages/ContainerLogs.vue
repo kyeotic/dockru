@@ -2,7 +2,7 @@
     <transition name="slide-fade" appear>
         <div>
             <h1 class="mb-3">
-                <router-link :to="composeRoute">{{ stackName }}</router-link> - {{ serviceName }} ({{ $t("Logs") }})
+                <router-link :to="composeRoute">{{ stackName }}</router-link> - <router-link :to="containerPageRoute">{{ serviceName }}</router-link> ({{ $t("Logs") }})
             </h1>
 
             <Terminal
@@ -41,6 +41,18 @@ export default {
                 return `/compose/${this.stackName}/${this.endpoint}`;
             }
             return `/compose/${this.stackName}`;
+        },
+        containerPageRoute() {
+            if (this.endpoint) {
+                return {
+                    name: "containerPageEndpoint",
+                    params: { stackName: this.stackName, serviceName: this.serviceName, endpoint: this.endpoint },
+                };
+            }
+            return {
+                name: "containerPage",
+                params: { stackName: this.stackName, serviceName: this.serviceName },
+            };
         },
         terminalName() {
             return getContainerLogsTerminalName(

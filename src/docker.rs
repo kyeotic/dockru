@@ -160,9 +160,11 @@ pub fn map_to_service_status(
                 ports
             };
 
+            let image = container.image.clone();
+
             status_map.insert(
                 service,
-                crate::stack::ServiceStatus { state, ports, health },
+                crate::stack::ServiceStatus { state, ports, health, image },
             );
         }
     }
@@ -439,6 +441,134 @@ pub async fn delete(
     tokio::fs::remove_dir_all(stack_path)
         .await
         .context("Failed to remove stack directory")?;
+
+    Ok(exit_code)
+}
+
+//------------------------------------------------------------------------------
+// Service-Level Operations
+//------------------------------------------------------------------------------
+
+/// Restart a single service in a compose stack
+pub async fn restart_service(
+    io: socketioxide::SocketIo,
+    stack_name: &str,
+    stack_path: &Path,
+    stacks_dir: &Path,
+    endpoint: &str,
+    service_name: &str,
+    socket: Option<SocketRef>,
+) -> Result<i32> {
+    let terminal_name = get_compose_terminal_name(endpoint, stack_name);
+    let options = compose_options(stacks_dir, stack_name, "restart", &[service_name]);
+
+    let exit_code = Terminal::exec(
+        io,
+        socket,
+        terminal_name,
+        "docker".to_string(),
+        options,
+        stack_path.display().to_string(),
+    )
+    .await
+    .context("Failed to execute docker compose restart")?;
+
+    if exit_code != 0 {
+        anyhow::bail!("Failed to restart service, please check the terminal output for more information.");
+    }
+
+    Ok(exit_code)
+}
+
+/// Start a single service in a compose stack
+pub async fn start_service(
+    io: socketioxide::SocketIo,
+    stack_name: &str,
+    stack_path: &Path,
+    stacks_dir: &Path,
+    endpoint: &str,
+    service_name: &str,
+    socket: Option<SocketRef>,
+) -> Result<i32> {
+    let terminal_name = get_compose_terminal_name(endpoint, stack_name);
+    let options = compose_options(stacks_dir, stack_name, "start", &[service_name]);
+
+    let exit_code = Terminal::exec(
+        io,
+        socket,
+        terminal_name,
+        "docker".to_string(),
+        options,
+        stack_path.display().to_string(),
+    )
+    .await
+    .context("Failed to execute docker compose start")?;
+
+    if exit_code != 0 {
+        anyhow::bail!("Failed to start service, please check the terminal output for more information.");
+    }
+
+    Ok(exit_code)
+}
+
+/// Stop a single service in a compose stack
+pub async fn stop_service(
+    io: socketioxide::SocketIo,
+    stack_name: &str,
+    stack_path: &Path,
+    stacks_dir: &Path,
+    endpoint: &str,
+    service_name: &str,
+    socket: Option<SocketRef>,
+) -> Result<i32> {
+    let terminal_name = get_compose_terminal_name(endpoint, stack_name);
+    let options = compose_options(stacks_dir, stack_name, "stop", &[service_name]);
+
+    let exit_code = Terminal::exec(
+        io,
+        socket,
+        terminal_name,
+        "docker".to_string(),
+        options,
+        stack_path.display().to_string(),
+    )
+    .await
+    .context("Failed to execute docker compose stop")?;
+
+    if exit_code != 0 {
+        anyhow::bail!("Failed to stop service, please check the terminal output for more information.");
+    }
+
+    Ok(exit_code)
+}
+
+/// Pull a new image for a single service in a compose stack
+pub async fn pull_service(
+    io: socketioxide::SocketIo,
+    stack_name: &str,
+    stack_path: &Path,
+    stacks_dir: &Path,
+    endpoint: &str,
+    service_name: &str,
+    socket: Option<SocketRef>,
+) -> Result<i32> {
+    let terminal_name = get_compose_terminal_name(endpoint, stack_name);
+    let options = compose_options(stacks_dir, stack_name, "pull", &[service_name]);
+
+    let exit_code = Terminal::exec(
+        io,
+        socket,
+        terminal_name,
+        "docker".to_string(),
+        options,
+        stack_path.display().to_string(),
+    )
+    .await
+    .context("Failed to execute docker compose pull")?;
+
+    if exit_code != 0 {
+        anyhow::bail!("Failed to pull service image, please check the terminal output for more information.");
+    }
 
     Ok(exit_code)
 }

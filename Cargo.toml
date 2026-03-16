@@ -85,6 +85,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Phase 10: HTTP client for version checking
 reqwest = { version = "0.12", features = ["json"] }
+openssl = { version = "0.10", features = ["vendored"] }
 
 # Phase 4: Authentication & Security
 # Password hashing with bcrypt
