@@ -1,104 +1,110 @@
 <template>
-    <transition name="slide-fade" appear>
-        <div>
-            <h1 class="mb-3">
-                <router-link :to="composeRoute">{{ stackName }}</router-link> - <router-link :to="containerPageRoute">{{ serviceName }}</router-link> ({{ $t("terminal") }})
-            </h1>
+  <transition name="slide-fade" appear>
+    <div>
+      <h1 class="mb-3">
+        <router-link :to="composeRoute">{{ stackName }}</router-link> -
+        <router-link :to="containerPageRoute">{{ serviceName }}</router-link>
+        ({{ $t('terminal') }})
+      </h1>
 
-            <div class="mb-3">
-                <router-link :to="sh" class="btn btn-normal me-2">{{
-                    $t("Switch to sh")
-                }}</router-link>
-            </div>
+      <div class="mb-3">
+        <router-link :to="sh" class="btn btn-normal me-2">{{
+          $t('Switch to sh')
+        }}</router-link>
+      </div>
 
-            <Terminal
-                class="terminal"
-                :rows="20"
-                mode="interactive"
-                :name="terminalName"
-                :stack-name="stackName"
-                :service-name="serviceName"
-                :shell="shell"
-                :endpoint="endpoint"
-            ></Terminal>
-        </div>
-    </transition>
+      <Terminal
+        class="terminal"
+        :rows="20"
+        mode="interactive"
+        :name="terminalName"
+        :stack-name="stackName"
+        :service-name="serviceName"
+        :shell="shell"
+        :endpoint="endpoint"
+      ></Terminal>
+    </div>
+  </transition>
 </template>
 
 <script>
-import { getContainerExecTerminalName } from "../../common/util-common";
+import { getContainerExecTerminalName } from '../../common/util-common'
 
 export default {
-    components: {},
-    data() {
-        return {};
+  components: {},
+  data() {
+    return {}
+  },
+  computed: {
+    stackName() {
+      return this.$route.params.stackName
     },
-    computed: {
-        stackName() {
-            return this.$route.params.stackName;
-        },
-        endpoint() {
-            return this.$route.params.endpoint || "";
-        },
-        shell() {
-            return this.$route.params.type;
-        },
-        serviceName() {
-            return this.$route.params.serviceName;
-        },
-        terminalName() {
-            return getContainerExecTerminalName(
-                this.endpoint,
-                this.stackName,
-                this.serviceName,
-                0,
-            );
-        },
-        composeRoute() {
-            if (this.endpoint) {
-                return `/compose/${this.stackName}/${this.endpoint}`;
-            }
-            return `/compose/${this.stackName}`;
-        },
-        containerPageRoute() {
-            if (this.endpoint) {
-                return {
-                    name: "containerPageEndpoint",
-                    params: { stackName: this.stackName, serviceName: this.serviceName, endpoint: this.endpoint },
-                };
-            }
-            return {
-                name: "containerPage",
-                params: { stackName: this.stackName, serviceName: this.serviceName },
-            };
-        },
-        sh() {
-            let endpoint = this.$route.params.endpoint;
-
-            let data = {
-                name: "containerTerminal",
-                params: {
-                    stackName: this.stackName,
-                    serviceName: this.serviceName,
-                    type: "sh",
-                },
-            };
-
-            if (endpoint) {
-                data.name = "containerTerminalEndpoint";
-                data.params.endpoint = endpoint;
-            }
-
-            return data;
-        },
+    endpoint() {
+      return this.$route.params.endpoint || ''
     },
-    mounted() {},
-    methods: {},
-};
+    shell() {
+      return this.$route.params.type
+    },
+    serviceName() {
+      return this.$route.params.serviceName
+    },
+    terminalName() {
+      return getContainerExecTerminalName(
+        this.endpoint,
+        this.stackName,
+        this.serviceName,
+        0,
+      )
+    },
+    composeRoute() {
+      if (this.endpoint) {
+        return `/compose/${this.stackName}/${this.endpoint}`
+      }
+      return `/compose/${this.stackName}`
+    },
+    containerPageRoute() {
+      if (this.endpoint) {
+        return {
+          name: 'containerPageEndpoint',
+          params: {
+            stackName: this.stackName,
+            serviceName: this.serviceName,
+            endpoint: this.endpoint,
+          },
+        }
+      }
+      return {
+        name: 'containerPage',
+        params: { stackName: this.stackName, serviceName: this.serviceName },
+      }
+    },
+    sh() {
+      let endpoint = this.$route.params.endpoint
+
+      let data = {
+        name: 'containerTerminal',
+        params: {
+          stackName: this.stackName,
+          serviceName: this.serviceName,
+          type: 'sh',
+        },
+      }
+
+      if (endpoint) {
+        data.name = 'containerTerminalEndpoint'
+        data.params.endpoint = endpoint
+      }
+
+      return data
+    },
+  },
+  mounted() {},
+  methods: {},
+}
 </script>
 
 <style scoped lang="scss">
 .terminal {
-    height: 410px;
+  height: 410px;
 }
 </style>

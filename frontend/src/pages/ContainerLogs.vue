@@ -1,74 +1,80 @@
 <template>
-    <transition name="slide-fade" appear>
-        <div>
-            <h1 class="mb-3">
-                <router-link :to="composeRoute">{{ stackName }}</router-link> - <router-link :to="containerPageRoute">{{ serviceName }}</router-link> ({{ $t("Logs") }})
-            </h1>
+  <transition name="slide-fade" appear>
+    <div>
+      <h1 class="mb-3">
+        <router-link :to="composeRoute">{{ stackName }}</router-link> -
+        <router-link :to="containerPageRoute">{{ serviceName }}</router-link>
+        ({{ $t('Logs') }})
+      </h1>
 
-            <Terminal
-                class="terminal"
-                :rows="20"
-                mode="containerLogs"
-                :name="terminalName"
-                :stack-name="stackName"
-                :service-name="serviceName"
-                :endpoint="endpoint"
-            ></Terminal>
-        </div>
-    </transition>
+      <Terminal
+        class="terminal"
+        :rows="20"
+        mode="containerLogs"
+        :name="terminalName"
+        :stack-name="stackName"
+        :service-name="serviceName"
+        :endpoint="endpoint"
+      ></Terminal>
+    </div>
+  </transition>
 </template>
 
 <script>
-import { getContainerLogsTerminalName } from "../../common/util-common";
+import { getContainerLogsTerminalName } from '../../common/util-common'
 
 export default {
-    components: {},
-    data() {
-        return {};
+  components: {},
+  data() {
+    return {}
+  },
+  computed: {
+    stackName() {
+      return this.$route.params.stackName
     },
-    computed: {
-        stackName() {
-            return this.$route.params.stackName;
-        },
-        endpoint() {
-            return this.$route.params.endpoint || "";
-        },
-        serviceName() {
-            return this.$route.params.serviceName;
-        },
-        composeRoute() {
-            if (this.endpoint) {
-                return `/compose/${this.stackName}/${this.endpoint}`;
-            }
-            return `/compose/${this.stackName}`;
-        },
-        containerPageRoute() {
-            if (this.endpoint) {
-                return {
-                    name: "containerPageEndpoint",
-                    params: { stackName: this.stackName, serviceName: this.serviceName, endpoint: this.endpoint },
-                };
-            }
-            return {
-                name: "containerPage",
-                params: { stackName: this.stackName, serviceName: this.serviceName },
-            };
-        },
-        terminalName() {
-            return getContainerLogsTerminalName(
-                this.endpoint,
-                this.stackName,
-                this.serviceName,
-            );
-        },
+    endpoint() {
+      return this.$route.params.endpoint || ''
     },
-    mounted() {},
-    methods: {},
-};
+    serviceName() {
+      return this.$route.params.serviceName
+    },
+    composeRoute() {
+      if (this.endpoint) {
+        return `/compose/${this.stackName}/${this.endpoint}`
+      }
+      return `/compose/${this.stackName}`
+    },
+    containerPageRoute() {
+      if (this.endpoint) {
+        return {
+          name: 'containerPageEndpoint',
+          params: {
+            stackName: this.stackName,
+            serviceName: this.serviceName,
+            endpoint: this.endpoint,
+          },
+        }
+      }
+      return {
+        name: 'containerPage',
+        params: { stackName: this.stackName, serviceName: this.serviceName },
+      }
+    },
+    terminalName() {
+      return getContainerLogsTerminalName(
+        this.endpoint,
+        this.stackName,
+        this.serviceName,
+      )
+    },
+  },
+  mounted() {},
+  methods: {},
+}
 </script>
 
 <style scoped lang="scss">
 .terminal {
-    height: 410px;
+  height: 410px;
 }
 </style>
