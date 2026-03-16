@@ -129,10 +129,7 @@
           :name="terminalName"
           :endpoint="endpoint"
           :rows="progressTerminalRows"
-          @has-data="
-            showProgressTerminal = true
-            submitted = true
-          "
+          @has-data="showProgressTerminal = true; submitted = true"
         ></Terminal>
       </transition>
 
