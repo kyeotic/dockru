@@ -102,10 +102,8 @@ export default {
     // Add right-click context menu handler for paste
     this.$refs.terminal.addEventListener('contextmenu', this.handleContextMenu)
 
-    // Add selection handler for copy to clipboard
-    this.terminal.onSelectionChange(() => {
-      this.handleSelection()
-    })
+    // Copy selection on mouseup (user gesture ensures clipboard access works)
+    this.$refs.terminal.addEventListener('mouseup', this.handleMouseUp)
 
     // Notify parent component when data is received
     this.terminal.onCursorMove(() => {
@@ -161,10 +159,8 @@ export default {
     window.removeEventListener('resize', this.onResizeEvent) // Remove the resize event listener from the window object.
     this.$root.unbindTerminal(this.name)
     this.terminal.dispose()
-    this.$refs.terminal?.removeEventListener(
-      'contextmenu',
-      this.handleContextMenu,
-    )
+    this.$refs.terminal?.removeEventListener('contextmenu', this.handleContextMenu)
+    this.$refs.terminal?.removeEventListener('mouseup', this.handleMouseUp)
   },
 
   methods: {
@@ -283,7 +279,12 @@ export default {
             this.cursorPosition--
           }
         } else if (e.key === '\u0003') {
-          // Ctrl + C
+          // Ctrl + C: copy selection if present, otherwise send interrupt
+          const selection = this.terminal.getSelection()
+          if (selection && selection.length > 0) {
+            this.copyToClipboard(selection)
+            return
+          }
           console.debug('Ctrl + C')
           this.$root.emitAgent(this.endpoint, 'terminalInput', this.name, e.key)
           this.removeInput()
@@ -322,6 +323,15 @@ export default {
         ) {
           this.handlePaste()
           return
+        }
+
+        // Handle Ctrl+C: copy selection if present, otherwise send interrupt
+        if (e.key === '\u0003') {
+          const selection = this.terminal.getSelection()
+          if (selection && selection.length > 0) {
+            this.copyToClipboard(selection)
+            return
+          }
         }
 
         this.$root.emitAgent(
@@ -435,9 +445,9 @@ export default {
     },
 
     /**
-     * Handle text selection in terminal - copy to clipboard
+     * Copy selection to clipboard on mouseup (user gesture = reliable clipboard access)
      */
-    handleSelection() {
+    handleMouseUp() {
       const selectedText = this.terminal.getSelection()
       if (selectedText && selectedText.length > 0) {
         this.copyToClipboard(selectedText)

@@ -79,6 +79,18 @@ docker-build:
 docker-build-platform platform="linux/amd64":
     docker buildx build --platform {{ platform }} -t dockru:latest -f ./docker/Dockerfile .
 
+# Build and deploy to the dev server (192.168.0.20) via SSH — no registry needed
+deploy-dev host="root@192.168.0.20" stack_path="/mnt/app_config/dockru/dockru":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "==> Building image for linux/amd64..."
+    docker build --platform linux/amd64 -t ghcr.io/kyeotic/dockru:latest -f ./docker/Dockerfile .
+    echo "==> Transferring image to {{ host }} (this may take a moment)..."
+    docker save ghcr.io/kyeotic/dockru:latest | ssh {{ host }} docker load
+    echo "==> Restarting container on {{ host }}..."
+    ssh {{ host }} "cd {{ stack_path }} && docker compose up -d"
+    echo "==> Deploy complete! App running at http://192.168.0.20:5051"
+
 # Build and push Docker image (update with your registry)
 docker-push registry="localhost:5000":
     docker build --platform linux/amd64 -t {{ registry }}/dockru:latest -f ./docker/Dockerfile .
